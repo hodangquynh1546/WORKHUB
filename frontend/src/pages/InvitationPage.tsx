@@ -25,7 +25,7 @@ export function InvitationPage() {
     setActionError(null)
     try {
       const result = await api<InvitationAccepted>('/api/invitations/accept', { method: 'POST', body: { token } })
-      navigate(result.teamId ? `/teams/${result.teamId}` : `/workspaces/${result.workspaceId}`)
+      navigate(result.projectId ? `/projects/${result.projectId}` : result.teamId ? `/teams/${result.teamId}` : `/workspaces/${result.workspaceId}`)
     } catch (err) {
       setActionError(errorMessage(err))
       setBusy(false)
@@ -60,7 +60,7 @@ export function InvitationPage() {
     )
   }
 
-  const target = invitation.teamName ? `team ${invitation.teamName} (workspace ${invitation.workspaceName})` : `workspace ${invitation.workspaceName}`
+  const target = invitation.projectName ? `dự án ${invitation.projectName} (workspace ${invitation.workspaceName})` : invitation.teamName ? `team ${invitation.teamName} (workspace ${invitation.workspaceName})` : `workspace ${invitation.workspaceName}`
   const wrongAccount = invitation.kind === 'EMAIL' && user && user.email !== invitation.email
 
   return (
@@ -68,7 +68,7 @@ export function InvitationPage() {
       <div className="stack">
         <p>
           <strong>{invitation.invitedByName}</strong> mời bạn tham gia <strong>{target}</strong> với vai trò{' '}
-          <strong>{invitationRoleLabel(invitation.teamId, invitation.role)}</strong>.
+          <strong>{invitationRoleLabel(invitation.teamId, invitation.role, invitation.projectId)}</strong>.
         </p>
         {invitation.status !== 'PENDING' ? (
           <Alert>{INVITATION_STATUS_TEXT[invitation.status]}</Alert>

@@ -97,6 +97,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         listeners.current.set(type, set)
         return () => void set.delete(fn)
       },
+      send(frame) {
+        if (socket.current?.readyState !== WebSocket.OPEN) return false
+        socket.current.send(JSON.stringify(frame))
+        return true
+      },
       subscribe(projectId) {
         const count = projects.current.get(projectId) ?? 0
         projects.current.set(projectId, count + 1)

@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.workhub.access.AccessService;
 import com.workhub.common.ApiException;
+import com.workhub.document.CollabSessions;
 
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -32,6 +33,8 @@ public class RealtimeSocketHandler extends TextWebSocketHandler {
 
 	private static final long AUTH_TIMEOUT_SECONDS = 10;
 
+	private static final int MAX_FRAME_BYTES = 2 * 1024 * 1024;
+
 	private final ScheduledExecutorService timeouts = Executors.newSingleThreadScheduledExecutor((r) -> {
 		Thread t = new Thread(r, "ws-auth-timeout");
 		t.setDaemon(true);
@@ -46,7 +49,10 @@ public class RealtimeSocketHandler extends TextWebSocketHandler {
 
 	private final JsonMapper json;
 
-	RealtimeSocketHandler(RealtimeHub hub, JwtDecoder jwtDecoder, AccessService access, JsonMapper json) {
+	private final CollabSessions collab;
+
+	RealtimeSocketHandler(RealtimeHub hub, JwtDecoder jwtDecoder, AccessService access, JsonMapper json, CollabSessions collab) {
+		this.collab = collab;
 		this.hub = hub;
 		this.jwtDecoder = jwtDecoder;
 		this.access = access;
@@ -55,6 +61,8 @@ public class RealtimeSocketHandler extends TextWebSocketHandler {
 
 	@Override
 	public void afterConnectionEstablished(WebSocketSession session) {
+		// Collaborative-editing frames carry base64 Yjs data; the default 8 KB limit would cut a pasted page.
+		session.setTextMessageSizeLimit(MAX_FRAME_BYTES);
 		timeouts.schedule(() -> {
 			if (session.isOpen() && !(session.getAttributes().get(RealtimeHub.USER) instanceof UUID)) {
 				close(session, CloseStatus.POLICY_VIOLATION.withReason("auth timeout"));
@@ -97,6 +105,17 @@ public class RealtimeSocketHandler extends TextWebSocketHandler {
 				hub.subscribe(session, projectId, on);
 				reply(session, Map.of("type", on ? "subscribed" : "unsubscribed", "projectId", projectId));
 			}
+			case "doc.join", "doc.leave", "doc.update", "doc.awareness" -> {
+				UUID documentId = parseId(frame.path("documentId").asString(""));
+				if (documentId != null) {
+					switch (type) {
+						case "doc.join" -> collab.join(session, userId, documentId);
+						case "doc.leave" -> collab.leave(session, documentId);
+						case "doc.update" -> collab.update(session, documentId, frame.path("epoch").asInt(0), frame.path("update").asString(""));
+						default -> collab.awareness(session, documentId, frame.path("clientId").asLong(0), frame.path("update").asString(""));
+					}
+				}
+			}
 			default -> {
 				// Unknown frames are ignored so newer clients can talk to older servers.
 			}
@@ -105,11 +124,13 @@ public class RealtimeSocketHandler extends TextWebSocketHandler {
 
 	@Override
 	public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
+		collab.closed(session);
 		hub.unregister(session);
 	}
 
 	@Override
 	public void handleTransportError(WebSocketSession session, Throwable exception) {
+		collab.closed(session);
 		hub.unregister(session);
 		close(session, CloseStatus.SERVER_ERROR);
 	}

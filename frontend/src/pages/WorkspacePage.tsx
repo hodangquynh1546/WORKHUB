@@ -11,6 +11,7 @@ import { ProjectList } from '../components/ProjectList'
 import { ROLE_LABELS } from './roles'
 import { WorkspaceLogo } from './WorkspacesPage'
 import { PageSkeleton } from '../components/Skeleton'
+import { ExportMenu } from '../components/ExportMenu'
 
 export function WorkspacePage() {
   const { workspaceId } = useParams()
@@ -40,6 +41,14 @@ export function WorkspacePage() {
           {workspace.description && <p className="muted">{workspace.description}</p>}
         </div>
         <span className="badge">{ROLE_LABELS[workspace.myRole]}</span>
+        <div className="actions workspace-actions">
+          <ExportMenu options={[{ label: 'Tổng hợp dự án', path: `/api/workspaces/${workspace.id}/export/projects` }, { label: 'Thành viên', path: `/api/workspaces/${workspace.id}/export/members` }]} />
+          {can('VIEW_AUDIT') && (
+            <Link to={`/workspaces/${workspace.id}/audit`} className="button-link button-link-secondary button-small">
+              Nhật ký hoạt động
+            </Link>
+          )}
+        </div>
       </header>
       <div className="two-column">
         <div className="stack-lg">

@@ -55,6 +55,7 @@ export function ProjectLayout() {
         <NavLink to="reports">Báo cáo</NavLink>
         <NavLink to="chat">Trao đổi</NavLink>
         <NavLink to="members">Thành viên</NavLink>
+        {canUpdate && <NavLink to="audit">Nhật ký</NavLink>}
         {canUpdate && <NavLink to="settings">Cài đặt</NavLink>}
       </nav>
       {project.status === 'ARCHIVED' && (

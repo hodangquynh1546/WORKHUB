@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { api, applySession } from '../api/client'
 import { errorMessage } from '../api/errors'
 import { resizeToSquare } from '../api/resizeImage'
@@ -53,6 +53,9 @@ export function AccountMenu() {
             <summary>Đổi mật khẩu</summary>
             <ChangePasswordForm />
           </details>
+          <Link to="/activity" className="account-link" onClick={() => setOpen(false)}>
+            Hoạt động của tôi
+          </Link>
           <button
             type="button"
             className="button-secondary account-logout"

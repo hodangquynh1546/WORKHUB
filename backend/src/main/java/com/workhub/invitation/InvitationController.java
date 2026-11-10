@@ -54,6 +54,18 @@ public class InvitationController {
 		return invitationService.listForTeam(CurrentUser.id(jwt), teamId);
 	}
 
+	@PostMapping("/api/projects/{projectId}/invitations")
+	@ResponseStatus(HttpStatus.CREATED)
+	public InvitationRequests.Created inviteToProject(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId,
+			@Valid @RequestBody InvitationRequests.Create request) {
+		return invitationService.inviteToProject(CurrentUser.id(jwt), projectId, request);
+	}
+
+	@GetMapping("/api/projects/{projectId}/invitations")
+	public List<InvitationResponse> listForProject(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId) {
+		return invitationService.listForProject(CurrentUser.id(jwt), projectId);
+	}
+
 	@DeleteMapping("/api/invitations/{invitationId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void revoke(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID invitationId) {

@@ -4,6 +4,7 @@ import static com.workhub.access.WorkspacePermission.MANAGE_ADMINS;
 import static com.workhub.access.WorkspacePermission.MANAGE_MEMBERS;
 import static com.workhub.access.WorkspacePermission.MANAGE_TEAMS;
 import static com.workhub.access.WorkspacePermission.UPDATE_SETTINGS;
+import static com.workhub.access.WorkspacePermission.VIEW_AUDIT;
 import static com.workhub.access.WorkspacePermission.VIEW;
 
 import java.util.Collections;
@@ -16,7 +17,7 @@ import com.workhub.access.WorkspacePermission;
 public enum WorkspaceRole {
 
 	OWNER(EnumSet.allOf(WorkspacePermission.class)),
-	ADMIN(EnumSet.of(VIEW, UPDATE_SETTINGS, MANAGE_MEMBERS, MANAGE_TEAMS)),
+	ADMIN(EnumSet.of(VIEW, UPDATE_SETTINGS, MANAGE_MEMBERS, MANAGE_TEAMS, VIEW_AUDIT)),
 	MEMBER(EnumSet.of(VIEW));
 
 	private final Set<WorkspacePermission> permissions;

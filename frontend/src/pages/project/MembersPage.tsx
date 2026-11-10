@@ -6,6 +6,8 @@ import type { ProjectMember, ProjectRole, WorkspaceMember } from '../../api/type
 import { useResource } from '../../api/useResource'
 import { useAuth } from '../../auth/AuthContext'
 import { Alert } from '../../components/Form'
+import type { Invitation } from '../../api/types'
+import { InviteForm, PendingInvitations } from '../../components/Invitations'
 import { PROJECT_ROLE_LABELS, PROJECT_ROLES } from '../roles'
 import { useProject } from './projectContext'
 import { useLiveReload } from '../../realtime/useLiveReload'
@@ -98,6 +100,7 @@ export function MembersPage() {
         </tbody>
       </table>
       {canManage && members && <AddMember projectId={project.id} workspaceId={project.workspaceId} existing={members} onAdded={() => run(async () => undefined)} />}
+      {canManage && <ProjectInvitations projectId={project.id} />}
       {project.myRole && (
         <button type="button" className="button-danger leave-button" onClick={leave}>
           Rời dự án
@@ -149,5 +152,19 @@ function AddMember({ projectId, workspaceId, existing, onAdded }: { projectId: s
       <button type="submit">Thêm</button>
       <Alert>{error}</Alert>
     </form>
+  )
+}
+
+function ProjectInvitations({ projectId }: { projectId: string }) {
+  const { data, reload } = useResource<Invitation[]>(`/api/projects/${projectId}/invitations`)
+  const roles = PROJECT_ROLES.map((value) => ({ value, label: PROJECT_ROLE_LABELS[value] }))
+  return (
+    <section className="card stack">
+      <h2>Mời người mới vào dự án</h2>
+      <p className="muted">Mời bằng email hoặc liên kết, kể cả người chưa có trong workspace. Họ sẽ vào workspace với vai trò thành viên và vào dự án với vai trò bạn chọn.</p>
+      <InviteForm path={`/api/projects/${projectId}/invitations`} roles={roles} onCreated={reload} />
+      <h3>Lời mời đang chờ</h3>
+      <PendingInvitations invitations={data ?? []} onChanged={reload} />
+    </section>
   )
 }

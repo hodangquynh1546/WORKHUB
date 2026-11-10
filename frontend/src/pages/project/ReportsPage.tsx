@@ -19,6 +19,7 @@ import { ScatterChart, type ScatterPoint } from '../../components/charts/Scatter
 import { TimeSeriesChart } from '../../components/charts/TimeSeriesChart'
 import { fmt } from '../../components/charts/chartUtils'
 import { useProject } from './projectContext'
+import { ExportMenu, PrintButton } from '../../components/ExportMenu'
 
 const VIEWS = [
   { id: 'sprint', label: 'Sprint', scrum: true },
@@ -105,6 +106,8 @@ function SprintReports({ projectId }: { projectId: string }) {
   return (
     <>
       <div className="filters">
+        <ExportMenu options={[{ label: 'Báo cáo sprint', path: `/api/sprints/${selected}/export` }, { label: 'Số liệu theo ngày', path: `/api/sprints/${selected}/export/daily` }]} />
+        <PrintButton />
         <select value={selected} onChange={(e) => setPicked(e.target.value)} aria-label="Chọn sprint">
           {sprints.map((s) => (
             <option key={s.id} value={s.id}>
@@ -263,6 +266,10 @@ function VelocityReport({ projectId }: { projectId: string }) {
   const last = data.sprints.at(-1)!
   return (
     <>
+      <div className="filters">
+        <ExportMenu options={[{ label: 'Velocity', path: `/api/projects/${projectId}/export/velocity` }]} />
+        <PrintButton />
+      </div>
       <div className="stat-grid">
         <Tile label="Trung bình 3 sprint gần nhất" value={data.average != null ? fmt(data.average) : '–'} hint="điểm mỗi sprint" />
         <Tile label={`Sprint gần nhất: ${last.name}`} value={fmt(last.completedPoints)} hint={`trên ${last.committedPoints} điểm cam kết`} />
@@ -310,6 +317,8 @@ function FlowReport({ projectId }: { projectId: string }) {
   const { data, error } = useResource<LeadTime>(`/api/projects/${projectId}/reports/lead-time?days=${days}`)
   const filter = (
     <div className="filters">
+      <ExportMenu options={[{ label: `Lead time và cycle time (${days} ngày)`, path: `/api/projects/${projectId}/export/lead-time?days=${days}` }]} />
+      <PrintButton />
       <select value={days} onChange={(e) => setDays(Number(e.target.value))} aria-label="Khoảng thời gian">
         <option value={30}>30 ngày qua</option>
         <option value={90}>90 ngày qua</option>
@@ -383,6 +392,11 @@ function WorkloadReport({ projectId }: { projectId: string }) {
   const max = Math.max(...data.rows.map((r) => r.todoIssues + r.inProgressIssues))
   const name = (r: Workload['rows'][number]) => r.fullName ?? 'Chưa giao'
   return (
+    <>
+    <div className="filters">
+      <ExportMenu options={[{ label: 'Khối lượng việc theo người', path: `/api/projects/${projectId}/export/workload` }]} />
+      <PrintButton />
+    </div>
     <ChartShell
       title="Khối lượng việc theo người"
       note="Công việc chưa hoàn thành, không gồm Epic. Người nhiều việc nhất ở trên cùng."
@@ -416,6 +430,7 @@ function WorkloadReport({ projectId }: { projectId: string }) {
         ))}
       </ul>
     </ChartShell>
+    </>
   )
 }
 
@@ -430,6 +445,8 @@ function BugReport({ projectId }: { projectId: string }) {
   return (
     <>
       <div className="filters">
+        <ExportMenu options={[{ label: `Xu hướng bug (${weeks} tuần)`, path: `/api/projects/${projectId}/export/bug-trend?weeks=${weeks}` }]} />
+        <PrintButton />
         <select value={weeks} onChange={(e) => setWeeks(Number(e.target.value))} aria-label="Số tuần">
           <option value={8}>8 tuần</option>
           <option value={12}>12 tuần</option>

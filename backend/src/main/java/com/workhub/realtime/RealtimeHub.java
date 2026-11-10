@@ -125,6 +125,12 @@ public class RealtimeHub {
 		return out;
 	}
 
+	/** One specific session (a collaborative-editing room member), not every session of a user. */
+	public void sendTo(WebSocketSession session, Object event) {
+		Object wrapped = session.getAttributes().get(WRAPPED);
+		send((wrapped instanceof WebSocketSession w) ? w : session, serialize(event));
+	}
+
 	public String serialize(Object event) {
 		return json.writeValueAsString(event);
 	}

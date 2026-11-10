@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
+import { exportChart } from './exportChart'
 import { toneColor, type Tone } from './chartUtils'
 
 export type LegendItem = { name: string; tone: Tone; dash?: boolean; area?: boolean; dot?: boolean }
@@ -20,17 +21,40 @@ export function ChartShell({
   children: ReactNode
 }) {
   const [table, setTable] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const root = useRef<HTMLElement>(null)
+  async function save(format: 'svg' | 'png') {
+    setError(null)
+    try {
+      await exportChart(root.current!, format, title)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không xuất được biểu đồ.')
+    }
+  }
   return (
-    <section className="card chart-card">
+    <section className="card chart-card" ref={root}>
       <div className="section-header">
         <div>
           <h2>{title}</h2>
           {note && <p className="muted small chart-note">{note}</p>}
         </div>
-        <button type="button" className="button-secondary button-small" onClick={() => setTable((v) => !v)}>
-          {table ? 'Xem biểu đồ' : 'Xem dạng bảng'}
-        </button>
+        <div className="actions no-print">
+          {!table && (
+            <>
+              <button type="button" className="button-secondary button-small" onClick={() => save('svg')}>
+                SVG
+              </button>
+              <button type="button" className="button-secondary button-small" onClick={() => save('png')}>
+                PNG
+              </button>
+            </>
+          )}
+          <button type="button" className="button-secondary button-small" onClick={() => setTable((v) => !v)}>
+            {table ? 'Xem biểu đồ' : 'Xem dạng bảng'}
+          </button>
+        </div>
       </div>
+      {error && <p className="text-danger small">{error}</p>}
       {legend && legend.length > 1 && (
         <ul className="chart-legend">
           {legend.map((item) => (

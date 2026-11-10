@@ -11,6 +11,8 @@ public enum WorkspacePermission {
 	MANAGE_MEMBERS,
 	/** Promote/demote admins, invite or remove admins. */
 	MANAGE_ADMINS,
+	/** Read the workspace's audit log and export it. */
+	VIEW_AUDIT,
 	/** Create teams and act as lead of every team. */
 	MANAGE_TEAMS
 

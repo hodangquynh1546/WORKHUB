@@ -1,12 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { ApiError, api, downloadFile } from '../../api/client'
+import { api, downloadFile } from '../../api/client'
 import { errorMessage } from '../../api/errors'
 import type {
   DocumentAttachment,
   DocumentDetail,
   DocumentFolder,
-  DocumentType,
   DocumentVersionDetail,
   DocumentVersionSummary,
   Issue,
@@ -20,11 +19,14 @@ import { Alert } from '../../components/Form'
 import { Markdown } from '../../components/Markdown'
 import { PageSkeleton } from '../../components/Skeleton'
 import { useProject } from '../project/projectContext'
-import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS, formatBytes, formatWhen } from './labels'
+import { DOCUMENT_TYPE_LABELS, formatBytes, formatWhen } from './labels'
 import { diffLines } from './lineDiff'
 import { useLiveReload } from '../../realtime/useLiveReload'
+import { PrintButton } from '../../components/ExportMenu'
+import { downloadText } from '../../api/downloadText'
 
-type Draft = { title: string; type: DocumentType; folderId: string; content: string; note: string; baseVersion: number }
+// The live editor (CodeMirror + Yjs) is a separate chunk: it loads only when somebody starts editing.
+const CollabEditor = lazy(() => import('./collab/CollabEditor'))
 
 const MAX_FILE = 10 * 1024 * 1024
 
@@ -42,22 +44,13 @@ export function DocumentPage() {
   const { data: doc, error, reload } = useResource<DocumentDetail>(`/api/documents/${documentId}`)
   const folders = useResource<DocumentFolder[]>(`/api/projects/${project.id}/document-folders`)
   useLiveReload(project.id, ['documents'], () => {
-    // Never reload over a draft being edited; the conflict check at save time covers the rest.
+    // While editing live the editor keeps the text itself; only the details around it are refreshed.
     reload()
     folders.reload()
   })
-  const [draft, setDraft] = useState<Draft | null>(null)
+  const [editing, setEditing] = useState(false)
   const [viewing, setViewing] = useState<DocumentVersionDetail | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [conflict, setConflict] = useState<DocumentDetail | null>(null)
-
-  const dirty = !!doc && !!draft && (draft.title !== doc.title || draft.content !== doc.content || draft.type !== doc.type || draft.folderId !== (doc.folderId ?? ''))
-  useEffect(() => {
-    if (!dirty) return
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
-    window.addEventListener('beforeunload', warn)
-    return () => window.removeEventListener('beforeunload', warn)
-  }, [dirty])
 
   if (error) {
     return (
@@ -76,33 +69,6 @@ export function DocumentPage() {
       reload()
     } catch (err) {
       setActionError(errorMessage(err))
-    }
-  }
-
-  function startEditing(current: DocumentDetail) {
-    setViewing(null)
-    setConflict(null)
-    setDraft({ title: current.title, type: current.type, folderId: current.folderId ?? '', content: current.content, note: '', baseVersion: current.version })
-  }
-
-  async function save() {
-    if (!draft || !doc) return
-    setActionError(null)
-    try {
-      await api(`/api/documents/${doc.id}`, {
-        method: 'PUT',
-        body: { title: draft.title, type: draft.type, folderId: draft.folderId || null, content: draft.content, note: draft.note || null, baseVersion: draft.baseVersion },
-      })
-      setDraft(null)
-      setConflict(null)
-      reload()
-    } catch (err) {
-      if (err instanceof ApiError && err.code === 'DOCUMENT_CONFLICT') {
-        // Someone saved first: fetch their version so the editor can choose what to do.
-        setConflict(await api<DocumentDetail>(`/api/documents/${doc.id}`))
-      } else {
-        setActionError(errorMessage(err))
-      }
     }
   }
 
@@ -130,9 +96,13 @@ export function DocumentPage() {
           </div>
           <h1>{doc.title}</h1>
         </div>
-        {!draft && (
-          <div className="actions">
-            {doc.canEdit && <button type="button" onClick={() => startEditing(doc)}>Chỉnh sửa</button>}
+        {!editing && (
+          <div className="actions no-print">
+            <PrintButton />
+            <button type="button" className="button-secondary button-small" onClick={() => downloadText(`${doc.title}.md`, doc.content)}>
+              Tải .md
+            </button>
+            {doc.canEdit && <button type="button" onClick={() => (setViewing(null), setEditing(true))}>Chỉnh sửa</button>}
             {project.permissions.includes('EDIT_DOCUMENTS') && project.status !== 'ARCHIVED' && (
               <button
                 type="button"
@@ -167,21 +137,10 @@ export function DocumentPage() {
 
       <div className="two-column">
         <div className="stack-lg">
-          {draft ? (
-            <Editor
-              draft={draft}
-              setDraft={setDraft}
-              folders={folders.data ?? []}
-              conflict={conflict}
-              onSave={save}
-              onCancel={() => {
-                if (dirty && !window.confirm('Bỏ các thay đổi chưa lưu?')) return
-                setDraft(null)
-                setConflict(null)
-              }}
-              onTakeLatest={() => (setDraft(null), setConflict(null), reload())}
-              onOverwrite={() => conflict && (setDraft({ ...draft, baseVersion: conflict.version }), setConflict(null))}
-            />
+          {editing ? (
+            <Suspense fallback={<PageSkeleton />}>
+              <CollabEditor doc={doc} folders={folders.data ?? []} onDone={() => (setEditing(false), reload())} onReload={async () => reload()} />
+            </Suspense>
           ) : viewing ? (
             <VersionView
               viewing={viewing}
@@ -231,122 +190,6 @@ export function DocumentPage() {
         </div>
       </div>
     </>
-  )
-}
-
-// ---------- editor ----------
-
-function Editor({
-  draft,
-  setDraft,
-  folders,
-  conflict,
-  onSave,
-  onCancel,
-  onTakeLatest,
-  onOverwrite,
-}: {
-  draft: Draft
-  setDraft: (draft: Draft) => void
-  folders: DocumentFolder[]
-  conflict: DocumentDetail | null
-  onSave: () => Promise<void>
-  onCancel: () => void
-  onTakeLatest: () => void
-  onOverwrite: () => void
-}) {
-  const [tab, setTab] = useState<'write' | 'preview'>('write')
-  const [busy, setBusy] = useState(false)
-  const set = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch })
-
-  return (
-    <section className="card stack">
-      {conflict && (
-        <div className="alert alert-error conflict-box" role="alert">
-          <strong>{conflict.updatedBy?.fullName ?? 'Người khác'} vừa lưu phiên bản {conflict.version}.</strong>
-          <span>Bản của bạn được viết trên phiên bản {draft.baseVersion}, nên chưa được lưu để tránh ghi đè mất nội dung của họ.</span>
-          <div className="actions">
-            <button type="button" className="button-secondary button-small" onClick={onTakeLatest}>
-              Lấy bản mới nhất, bỏ thay đổi của tôi
-            </button>
-            <button type="button" className="button-small" onClick={onOverwrite}>
-              Giữ bản của tôi để lưu đè
-            </button>
-          </div>
-        </div>
-      )}
-      <div className="inline-form editor-meta">
-        <label className="field editor-title">
-          <span>Tiêu đề</span>
-          <input value={draft.title} maxLength={200} required onChange={(e) => set({ title: e.target.value })} />
-        </label>
-        <label className="field">
-          <span>Loại</span>
-          <select value={draft.type} onChange={(e) => set({ type: e.target.value as DocumentType })}>
-            {DOCUMENT_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {DOCUMENT_TYPE_LABELS[t]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span>Thư mục</span>
-          <select value={draft.folderId} onChange={(e) => set({ folderId: e.target.value })}>
-            <option value="">Chưa phân loại</option>
-            {folders.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <div className="segmented-control" role="group" aria-label="Chế độ soạn thảo">
-        <button type="button" className={tab === 'write' ? 'on' : ''} onClick={() => setTab('write')}>
-          Soạn thảo
-        </button>
-        <button type="button" className={tab === 'preview' ? 'on' : ''} onClick={() => setTab('preview')}>
-          Xem trước
-        </button>
-      </div>
-      {tab === 'write' ? (
-        <textarea
-          className="editor-text"
-          rows={22}
-          maxLength={100000}
-          value={draft.content}
-          placeholder={'# Tiêu đề\n\nViết bằng Markdown: **đậm**, *nghiêng*, - danh sách, `mã`, [liên kết](https://…), bảng | a | b |'}
-          onChange={(e) => set({ content: e.target.value })}
-          aria-label="Nội dung tài liệu"
-        />
-      ) : (
-        <div className="editor-preview">
-          <Markdown source={draft.content} />
-        </div>
-      )}
-      <label className="field">
-        <span>Ghi chú thay đổi (không bắt buộc)</span>
-        <input value={draft.note} maxLength={200} placeholder="Ví dụ: bổ sung mục API đăng nhập" onChange={(e) => set({ note: e.target.value })} />
-      </label>
-      <div className="actions">
-        <button
-          type="button"
-          disabled={busy || !draft.title.trim()}
-          onClick={async () => {
-            setBusy(true)
-            await onSave()
-            setBusy(false)
-          }}
-        >
-          Lưu phiên bản mới
-        </button>
-        <button type="button" className="button-secondary" onClick={onCancel}>
-          Hủy
-        </button>
-        <span className="muted small editor-count">{draft.content.length.toLocaleString('vi-VN')} / 100.000 ký tự</span>
-      </div>
-    </section>
   )
 }
 

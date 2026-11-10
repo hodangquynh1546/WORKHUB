@@ -6,12 +6,18 @@ import java.util.List;
 import java.util.UUID;
 
 import com.workhub.access.AccessService;
+import com.workhub.access.ProjectPermission;
 import com.workhub.access.TeamPermission;
 import com.workhub.access.WorkspacePermission;
 import com.workhub.auth.AuthProperties;
 import com.workhub.auth.EmailSender;
 import com.workhub.common.ApiException;
 import com.workhub.common.SecureTokens;
+import com.workhub.project.Project;
+import com.workhub.project.ProjectMember;
+import com.workhub.project.ProjectMemberRepository;
+import com.workhub.project.ProjectRepository;
+import com.workhub.project.ProjectRole;
 import com.workhub.team.Team;
 import com.workhub.team.TeamMember;
 import com.workhub.team.TeamMemberRepository;
@@ -41,6 +47,10 @@ public class InvitationService {
 
 	private final TeamMemberRepository teamMembers;
 
+	private final ProjectRepository projects;
+
+	private final ProjectMemberRepository projectMembers;
+
 	private final UserRepository users;
 
 	private final UserService userService;
@@ -55,13 +65,15 @@ public class InvitationService {
 
 	public InvitationService(AccessService access, InvitationRepository invitations,
 			WorkspaceMemberRepository workspaceMembers, TeamRepository teams, TeamMemberRepository teamMembers,
-			UserRepository users, UserService userService, EmailSender emailSender, InvitationProperties properties,
+			ProjectRepository projects, ProjectMemberRepository projectMembers, UserRepository users, UserService userService, EmailSender emailSender, InvitationProperties properties,
 			AuthProperties authProperties, Clock clock) {
 		this.access = access;
 		this.invitations = invitations;
 		this.workspaceMembers = workspaceMembers;
 		this.teams = teams;
 		this.teamMembers = teamMembers;
+		this.projects = projects;
+		this.projectMembers = projectMembers;
 		this.users = users;
 		this.userService = userService;
 		this.emailSender = emailSender;
@@ -85,7 +97,7 @@ public class InvitationService {
 			.isPresent()) {
 			throw alreadyMember();
 		}
-		return create(workspaceId, null, request.kind(), email, role.name(), userId);
+		return create(workspaceId, null, null, request.kind(), email, role.name(), userId);
 	}
 
 	/** Team leads (and workspace admins) can invite; an invitee outside the workspace joins it as MEMBER. */
@@ -98,7 +110,34 @@ public class InvitationService {
 			.isPresent()) {
 			throw alreadyMember();
 		}
-		return create(team.getWorkspaceId(), teamId, request.kind(), email, role.name(), userId);
+		return create(team.getWorkspaceId(), teamId, null, request.kind(), email, role.name(), userId);
+	}
+
+	/**
+	 * Whoever may manage the project's members can invite into it, anyone with or without an account. The invitee
+	 * joins the workspace (as MEMBER) and the project with the chosen role, but not the project's team.
+	 */
+	public InvitationRequests.Created inviteToProject(UUID userId, UUID projectId, InvitationRequests.Create request) {
+		Project project = access.project(userId, projectId).require(ProjectPermission.MANAGE_MEMBERS).requireActive().project();
+		ProjectRole role = parseProjectRole(request.role());
+		if (role == ProjectRole.PRODUCT_OWNER || role == ProjectRole.SCRUM_MASTER) {
+			if (projectMembers.existsByProjectIdAndRole(projectId, role)) {
+				throw ApiException.conflict("ROLE_TAKEN", "Only one member can be " + role);
+			}
+		}
+		String email = emailFor(request);
+		if (email != null && users.findByEmail(email)
+			.filter((invitee) -> projectMembers.existsByProjectIdAndUserId(projectId, invitee.getId()))
+			.isPresent()) {
+			throw alreadyMember();
+		}
+		return create(project.getWorkspaceId(), null, projectId, request.kind(), email, role.name(), userId);
+	}
+
+	@Transactional(readOnly = true)
+	public List<InvitationResponse> listForProject(UUID userId, UUID projectId) {
+		access.project(userId, projectId).require(ProjectPermission.MANAGE_MEMBERS);
+		return invitations.findPendingInProject(projectId, clock.instant());
 	}
 
 	@Transactional(readOnly = true)
@@ -162,18 +201,33 @@ public class InvitationService {
 		if (team != null && team.isArchived()) {
 			throw ApiException.conflict("TEAM_ARCHIVED", "Team is archived");
 		}
+		Project project = null;
+		if (invitation.getProjectId() != null) {
+			project = projects.findById(invitation.getProjectId()).orElseThrow(InvitationService::notFound);
+			if (project.isArchived()) {
+				throw ApiException.conflict("PROJECT_ARCHIVED", "Project is archived");
+			}
+		}
 		// Existing memberships are kept as they are; an invitation never changes someone's role.
 		if (!workspaceMembers.existsByWorkspaceIdAndUserId(invitation.getWorkspaceId(), userId)) {
-			WorkspaceRole role = (team == null) ? WorkspaceRole.valueOf(invitation.getRole()) : WorkspaceRole.MEMBER;
+			WorkspaceRole role = (team == null && project == null) ? WorkspaceRole.valueOf(invitation.getRole()) : WorkspaceRole.MEMBER;
 			workspaceMembers.save(new WorkspaceMember(invitation.getWorkspaceId(), userId, role));
 		}
 		if (team != null && !teamMembers.existsByTeamIdAndUserId(team.getId(), userId)) {
 			teamMembers.save(new TeamMember(team.getId(), userId, TeamRole.valueOf(invitation.getRole())));
 		}
+		if (project != null && !projectMembers.existsByProjectIdAndUserId(project.getId(), userId)) {
+			ProjectRole role = ProjectRole.valueOf(invitation.getRole());
+			// The single-holder role may have been given to someone else since the invitation went out.
+			if ((role == ProjectRole.PRODUCT_OWNER || role == ProjectRole.SCRUM_MASTER) && projectMembers.existsByProjectIdAndRole(project.getId(), role)) {
+				role = ProjectRole.DEVELOPER;
+			}
+			projectMembers.save(new ProjectMember(project.getId(), userId, role));
+		}
 		if (invitation.getKind() == InvitationKind.EMAIL) {
 			invitation.respond(InvitationStatus.ACCEPTED, userId, now);
 		}
-		return new InvitationRequests.Accepted(invitation.getWorkspaceId(), invitation.getTeamId());
+		return new InvitationRequests.Accepted(invitation.getWorkspaceId(), invitation.getTeamId(), invitation.getProjectId());
 	}
 
 	private void decline(UUID userId, Invitation invitation) {
@@ -188,17 +242,17 @@ public class InvitationService {
 
 	// ---- helpers ----
 
-	private InvitationRequests.Created create(UUID workspaceId, UUID teamId, InvitationKind kind, String email,
+	private InvitationRequests.Created create(UUID workspaceId, UUID teamId, UUID projectId, InvitationKind kind, String email,
 			String role, UUID inviterId) {
 		if (kind == InvitationKind.EMAIL) {
 			// Re-inviting the same address replaces the previous link.
 			invitations
-				.findAllByWorkspaceIdAndTeamIdAndKindAndEmailAndStatus(workspaceId, teamId, kind, email,
+				.findAllByWorkspaceIdAndTeamIdAndProjectIdAndKindAndEmailAndStatus(workspaceId, teamId, projectId, kind, email,
 						InvitationStatus.PENDING)
 				.forEach(Invitation::revoke);
 		}
 		String token = SecureTokens.newToken();
-		Invitation invitation = invitations.save(new Invitation(workspaceId, teamId, kind, email, role,
+		Invitation invitation = invitations.save(new Invitation(workspaceId, teamId, projectId, kind, email, role,
 				SecureTokens.hash(token), inviterId, clock.instant().plus(properties.ttl())));
 		invitations.flush();
 		InvitationResponse view = invitations.findView(invitation.getId());
@@ -210,8 +264,8 @@ public class InvitationService {
 	}
 
 	private void sendEmail(InvitationResponse view, String url) {
-		String target = (view.teamName() != null)
-				? "team " + view.teamName() + " (workspace " + view.workspaceName() + ")"
+		String target = (view.projectName() != null) ? "dự án " + view.projectName() + " (workspace " + view.workspaceName() + ")"
+				: (view.teamName() != null) ? "team " + view.teamName() + " (workspace " + view.workspaceName() + ")"
 				: "workspace " + view.workspaceName();
 		emailSender.send(view.email(), view.invitedByName() + " mời bạn tham gia " + target + " trên WORKHUB",
 				"Xin chào,\n\n" + view.invitedByName() + " đã mời bạn tham gia " + target + ".\n\n"
@@ -220,7 +274,10 @@ public class InvitationService {
 	}
 
 	private void requireCanManage(UUID userId, Invitation invitation) {
-		if (invitation.getTeamId() != null) {
+		if (invitation.getProjectId() != null) {
+			access.project(userId, invitation.getProjectId()).require(ProjectPermission.MANAGE_MEMBERS);
+		}
+		else if (invitation.getTeamId() != null) {
 			access.team(userId, invitation.getTeamId()).require(TeamPermission.MANAGE_MEMBERS);
 		}
 		else {
@@ -275,6 +332,15 @@ public class InvitationService {
 			case "MEMBER" -> TeamRole.MEMBER;
 			default -> throw invalidRole();
 		};
+	}
+
+	private static ProjectRole parseProjectRole(String role) {
+		try {
+			return ProjectRole.valueOf(role);
+		}
+		catch (IllegalArgumentException ex) {
+			throw invalidRole();
+		}
 	}
 
 	private static ApiException invalidRole() {

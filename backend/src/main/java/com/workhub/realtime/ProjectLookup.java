@@ -33,19 +33,7 @@ class ProjectLookup {
 			default -> throw new IllegalArgumentException(table);
 		};
 		var rows = em.createNativeQuery(sql).setParameter("id", id).getResultList();
-		return rows.isEmpty() ? Optional.empty() : Optional.of(toUuid(rows.get(0)));
-	}
-
-	/** Native queries hand back a UUID column as UUID (PostgreSQL), 16 bytes (H2) or text, depending on the driver. */
-	private static UUID toUuid(Object value) {
-		if (value instanceof UUID id) {
-			return id;
-		}
-		if (value instanceof byte[] bytes && bytes.length == 16) {
-			java.nio.ByteBuffer buffer = java.nio.ByteBuffer.wrap(bytes);
-			return new UUID(buffer.getLong(), buffer.getLong());
-		}
-		return UUID.fromString(String.valueOf(value));
+		return rows.isEmpty() ? Optional.empty() : Optional.of(com.workhub.common.Uuids.from(rows.get(0)));
 	}
 
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type DragEvent, type FormEvent } from 'react'
+import { Fragment, useEffect, useMemo, useState, type DragEvent, type FormEvent } from 'react'
 import { Link } from 'react-router'
 import { api } from '../../api/client'
 import { errorMessage } from '../../api/errors'
@@ -18,6 +18,7 @@ import {
 import { useProject } from './projectContext'
 import { ListSkeleton } from '../../components/Skeleton'
 import { useLiveReload } from '../../realtime/useLiveReload'
+import { ExportMenu } from '../../components/ExportMenu'
 
 const PAGE_SIZE = 200
 /** Sub-tasks need a parent, so they are created from their parent's page. */
@@ -80,6 +81,12 @@ export function BacklogPage() {
   }, [filters.q])
 
   const query = useMemo(() => buildQuery({ ...filters, q: debouncedQ }), [filters, debouncedQ])
+  // The export applies the same filters as the list (all pages, not just the one on screen).
+  const exportQuery = useMemo(() => {
+    const p = new URLSearchParams(query)
+    p.delete('size')
+    return p.toString()
+  }, [query])
   const filtered = query !== buildQuery(NO_FILTERS)
   // Reordering is only meaningful on the full, unfiltered backlog.
   const canDrag = canOrder && !filtered && !groupByEpic
@@ -164,6 +171,7 @@ export function BacklogPage() {
       {canEdit && <QuickCreate projectId={project.id} onCreated={reload} />}
 
       <div className="filters">
+        <ExportMenu options={[{ label: 'Công việc (theo bộ lọc hiện tại)', path: `/api/projects/${project.id}/export/issues?${exportQuery}` }]} />
         <input type="search" placeholder="Tìm theo tiêu đề hoặc mã (ECOM-12)…" value={filters.q} onChange={(e) => set('q', e.target.value)} aria-label="Tìm kiếm" />
         <select value={filters.type} onChange={(e) => set('type', e.target.value as IssueType | '')} aria-label="Loại">
           <option value="">Mọi loại</option>
@@ -256,6 +264,7 @@ export function BacklogPage() {
                 onStatus={changeStatus}
                 onAssign={assign}
                 onMove={move}
+                refreshKey={version}
               />
             ))}
             {canDrag && <DropEnd onMove={move} />}
@@ -275,6 +284,7 @@ function IssueRow({
   onStatus,
   onAssign,
   onMove,
+  refreshKey,
 }: {
   issue: Issue
   members: ProjectMember[]
@@ -284,8 +294,23 @@ function IssueRow({
   onStatus: (issue: Issue, status: IssueStatus) => void
   onAssign: (issue: Issue, assigneeId: string) => void
   onMove: (movedId: string, targetId: string | null) => void
+  refreshKey: number
 }) {
   const [over, setOver] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const [subtasks, setSubtasks] = useState<Issue[] | null>(null)
+
+  // Children are loaded when the row is opened and reloaded on every live change while it stays open.
+  useEffect(() => {
+    if (!expanded) return
+    let cancelled = false
+    api<{ children: Issue[] }>(`/api/issues/${issue.id}`)
+      .then((detail) => !cancelled && setSubtasks(detail.children))
+      .catch(() => !cancelled && setSubtasks([]))
+    return () => {
+      cancelled = true
+    }
+  }, [expanded, issue.id, issue.childCount, refreshKey])
 
   function dragStart(event: DragEvent) {
     event.dataTransfer.setData('text/plain', issue.id)
@@ -293,6 +318,7 @@ function IssueRow({
   }
 
   return (
+    <Fragment>
     <li
       className={`issue-row ${over ? 'drop-target' : ''}`}
       onDragOver={(e) => {
@@ -308,6 +334,13 @@ function IssueRow({
         onMove(e.dataTransfer.getData('text/plain'), issue.id)
       }}
     >
+      {issue.childCount > 0 ? (
+        <button type="button" className="expand-toggle" aria-expanded={expanded} aria-label={expanded ? 'Thu gọn việc con' : 'Mở rộng việc con'} onClick={() => setExpanded((v) => !v)}>
+          {expanded ? '▾' : '▸'}
+        </button>
+      ) : (
+        <span className="expand-toggle expand-spacer" aria-hidden="true" />
+      )}
       {canDrag && (
         <span className="drag-handle" draggable onDragStart={dragStart} title="Kéo để sắp xếp" aria-label="Kéo để sắp xếp">
           ⠿
@@ -363,6 +396,25 @@ function IssueRow({
         <Assignee user={issue.assignee} />
       )}
     </li>
+    {expanded && (
+      <li className="subtask-wrap">
+        {subtasks === null ? (
+          <p className="muted small">Đang tải…</p>
+        ) : (
+          <ul className="plain-list subtask-list">
+            {subtasks.map((c) => (
+              <li key={c.id} className="subtask-row">
+                <span className="project-key">{c.key}</span> <TypeBadge type={c.type} />
+                <Link to={`/issues/${c.id}`}>{c.title}</Link>
+                <span className={`badge status-${c.status.toLowerCase()}`}>{workflow.names[c.status]}</span>
+                <Assignee user={c.assignee} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </li>
+    )}
+    </Fragment>
   )
 }
 

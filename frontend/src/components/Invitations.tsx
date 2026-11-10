@@ -112,8 +112,8 @@ export function PendingInvitations({ invitations, onChanged }: { invitations: In
             <div>
               <strong>{inv.kind === 'EMAIL' ? inv.email : 'Liên kết mời'}</strong>
               <p className="muted small">
-                {invitationRoleLabel(inv.teamId, inv.role)}
-                {inv.teamName && ` · team ${inv.teamName}`} · mời bởi {inv.invitedByName} · hết hạn {formatDate(inv.expiresAt)}
+                {invitationRoleLabel(inv.teamId, inv.role, inv.projectId)}
+                {inv.teamName && ` · team ${inv.teamName}`}{inv.projectName && ` · dự án ${inv.projectName}`} · mời bởi {inv.invitedByName} · hết hạn {formatDate(inv.expiresAt)}
               </p>
             </div>
             <button type="button" className="button-secondary" onClick={() => revoke(inv)}>

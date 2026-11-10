@@ -11,6 +11,7 @@ import { InviteForm, PendingInvitations } from '../components/Invitations'
 import { ProjectList } from '../components/ProjectList'
 import { TEAM_ROLE_LABELS } from './roles'
 import { PageSkeleton } from '../components/Skeleton'
+import { ExportMenu } from '../components/ExportMenu'
 
 const TEAM_ROLE_OPTIONS = [
   { value: 'LEAD', label: TEAM_ROLE_LABELS.LEAD },
@@ -46,6 +47,9 @@ export function TeamPage() {
           {team.description && <p className="muted">{team.description}</p>}
         </div>
         {team.myRole && <span className="badge">{TEAM_ROLE_LABELS[team.myRole]}</span>}
+        <div className="actions workspace-actions">
+          <ExportMenu options={[{ label: 'Tổng hợp dự án của team', path: `/api/teams/${team.id}/export/projects` }]} />
+        </div>
       </header>
       {team.archived && <Alert kind="info">Team đã được lưu trữ: chỉ xem, không thể thay đổi thành viên.</Alert>}
       <div className="two-column">

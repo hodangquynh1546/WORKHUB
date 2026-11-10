@@ -99,6 +99,20 @@ public class Document {
 		this.versionNumber++;
 	}
 
+	/**
+	 * Replaces the text without adding a version: collaborative editing saves a working copy often and adds
+	 * versions only now and then (see {@link CollabService}).
+	 */
+	void setWorkingCopy(String content, UUID author) {
+		this.content = content;
+		this.updatedBy = author;
+	}
+
+	void rename(String title, UUID author) {
+		this.title = title;
+		this.updatedBy = author;
+	}
+
 	void updateMetadata(DocumentType type, UUID folderId, UUID author) {
 		this.type = type;
 		this.folderId = folderId;

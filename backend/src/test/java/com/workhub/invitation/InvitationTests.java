@@ -121,6 +121,30 @@ class InvitationTests {
 	}
 
 	@Test
+	void projectInvitationAddsToWorkspaceAndProjectOnly() throws Exception {
+		Session owner = TestApi.register(mockMvc);
+		UUID ws = TestApi.createWorkspace(mockMvc, owner, "Acme");
+		UUID team = TestApi.createTeam(mockMvc, owner, ws, "Mobile");
+		UUID project = TestApi.createProject(mockMvc, owner, team, TestApi.uniqueKey());
+		Session invitee = TestApi.register(mockMvc);
+
+		String token = TestApi.linkToken(mockMvc, owner, "/api/projects/" + project + "/invitations", "QA_ENGINEER");
+		accept(invitee, token).andExpect(jsonPath("$.projectId").value(project.toString()));
+
+		mockMvc.perform(get("/api/workspaces/" + ws).header("Authorization", invitee.bearer()))
+			.andExpect(jsonPath("$.myRole").value("MEMBER"));
+		mockMvc.perform(get("/api/projects/" + project).header("Authorization", invitee.bearer()))
+			.andExpect(status().isOk());
+		mockMvc.perform(get("/api/teams/" + team).header("Authorization", invitee.bearer()))
+			.andExpect(jsonPath("$.myRole").doesNotExist());
+		mockMvc.perform(get("/api/projects/" + project + "/invitations").header("Authorization", owner.bearer()))
+			.andExpect(status().isOk());
+		// A plain workspace member cannot invite into the project.
+		mockMvc.perform(get("/api/projects/" + project + "/invitations").header("Authorization", invitee.bearer()))
+			.andExpect(status().isForbidden());
+	}
+
+	@Test
 	void invitingRequiresTheRightPermission() throws Exception {
 		Session owner = TestApi.register(mockMvc);
 		UUID ws = TestApi.createWorkspace(mockMvc, owner, "Acme");

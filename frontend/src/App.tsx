@@ -20,6 +20,7 @@ import { DocumentsPage } from './pages/documents/DocumentsPage'
 import { CalendarPage } from './pages/meetings/CalendarPage'
 import { MeetingPage } from './pages/meetings/MeetingPage'
 import { MeetingsPage } from './pages/meetings/MeetingsPage'
+import { MyActivityPage, ProjectAuditPage, WorkspaceAuditPage } from './pages/AuditPage'
 import { ChatPage } from './pages/chat/ChatPage'
 import { NotificationsPage } from './pages/NotificationsPage'
 import { ProjectChatRedirect } from './pages/chat/ProjectChatRedirect'
@@ -53,6 +54,8 @@ export default function App() {
               <Route path="/chat" element={<ChatPage />} />
               <Route path="/chat/:conversationId" element={<ChatPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/activity" element={<MyActivityPage />} />
+              <Route path="/workspaces/:workspaceId/audit" element={<WorkspaceAuditPage />} />
               <Route path="/teams/:teamId" element={<TeamPage />} />
               <Route path="/issues/:issueId" element={<IssuePage />} />
               <Route path="/projects/:projectId" element={<ProjectLayout />}>
@@ -69,6 +72,7 @@ export default function App() {
                 <Route path="chat" element={<ProjectChatRedirect />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="members" element={<MembersPage />} />
+                <Route path="audit" element={<ProjectAuditPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
             </Route>

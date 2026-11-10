@@ -14,6 +14,8 @@ import { useProject } from '../project/projectContext'
 import { MeetingForm } from './MeetingForm'
 import { MEETING_TYPE_LABELS, REMINDER_OPTIONS, RESPONSE_LABELS, formatRange } from './labels'
 import { useLiveReload } from '../../realtime/useLiveReload'
+import { PrintButton } from '../../components/ExportMenu'
+import { downloadText } from '../../api/downloadText'
 
 export function MeetingPage() {
   const { meetingId } = useParams()
@@ -234,11 +236,21 @@ function Minutes({ meeting, onChanged }: { meeting: MeetingDetail; onChanged: ()
     <section className="card stack">
       <div className="section-header">
         <h2>Biên bản họp</h2>
-        {meeting.canTakeNotes && !draft && (
-          <button type="button" className="button-secondary button-small" onClick={() => setDraft({ text: meeting.minutes ?? '', base: meeting.minutesRevision })}>
-            {meeting.minutes ? 'Sửa biên bản' : 'Ghi biên bản'}
-          </button>
-        )}
+        <div className="actions no-print">
+          {meeting.minutes && !draft && (
+            <>
+              <PrintButton />
+              <button type="button" className="button-secondary button-small" onClick={() => downloadText(`${meeting.title} - biên bản.md`, meeting.minutes ?? '')}>
+                Tải .md
+              </button>
+            </>
+          )}
+          {meeting.canTakeNotes && !draft && (
+            <button type="button" className="button-secondary button-small" onClick={() => setDraft({ text: meeting.minutes ?? '', base: meeting.minutesRevision })}>
+              {meeting.minutes ? 'Sửa biên bản' : 'Ghi biên bản'}
+            </button>
+          )}
+        </div>
       </div>
       {draft ? (
         <>

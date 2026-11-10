@@ -15,8 +15,9 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
 
 /**
- * Invitation into a workspace ({@code teamId == null}, {@code role} is a workspace role) or into a team
- * ({@code role} is a team role; accepting also adds the user to the workspace as MEMBER).
+ * Invitation into a workspace ({@code teamId == null}, {@code role} is a workspace role), into a team
+ * ({@code role} is a team role) or into a project ({@code projectId} set, {@code role} is a project role); accepting
+ * the last two also adds the user to the workspace as MEMBER.
  */
 @Entity
 @Table(name = "invitations")
@@ -31,6 +32,10 @@ public class Invitation {
 
 	@Column(name = "team_id", updatable = false)
 	private UUID teamId;
+
+	/** Set for an invitation into one project; {@code role} is then a project role. */
+	@Column(name = "project_id", updatable = false)
+	private UUID projectId;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 16, updatable = false)
@@ -68,10 +73,11 @@ public class Invitation {
 	protected Invitation() {
 	}
 
-	Invitation(UUID workspaceId, UUID teamId, InvitationKind kind, String email, String role, String tokenHash,
-			UUID invitedBy, Instant expiresAt) {
+	Invitation(UUID workspaceId, UUID teamId, UUID projectId, InvitationKind kind, String email, String role,
+			String tokenHash, UUID invitedBy, Instant expiresAt) {
 		this.workspaceId = workspaceId;
 		this.teamId = teamId;
+		this.projectId = projectId;
 		this.kind = kind;
 		this.email = email;
 		this.role = role;
@@ -106,6 +112,10 @@ public class Invitation {
 
 	UUID getTeamId() {
 		return teamId;
+	}
+
+	UUID getProjectId() {
+		return projectId;
 	}
 
 	InvitationKind getKind() {

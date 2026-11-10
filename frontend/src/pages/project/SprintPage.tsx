@@ -12,6 +12,7 @@ import { formatDay, localIsoDate, scheduleProgress } from '../roles'
 import { useProject } from './projectContext'
 import { PageSkeleton } from '../../components/Skeleton'
 import { useLiveReload } from '../../realtime/useLiveReload'
+import { ExportMenu, PrintButton } from '../../components/ExportMenu'
 
 export function SprintPage() {
   const { sprintId } = useParams()
@@ -81,6 +82,10 @@ function SprintHeader({ detail, canManage, onChanged }: { detail: SprintDetail; 
             {formatDay(sprint.startDate)} → {formatDay(sprint.endDate)}
             {sprint.facilitator && ` · điều phối: ${sprint.facilitator.fullName}`}
           </p>
+        </div>
+        <div className="actions">
+          <ExportMenu options={[{ label: 'Báo cáo sprint', path: `/api/sprints/${sprint.id}/export` }, { label: 'Số liệu theo ngày (burndown/burnup)', path: `/api/sprints/${sprint.id}/export/daily` }]} />
+          <PrintButton />
         </div>
         {canManage && open && (
           <div className="actions">

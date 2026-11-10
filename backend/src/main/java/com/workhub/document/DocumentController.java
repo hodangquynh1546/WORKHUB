@@ -41,8 +41,11 @@ public class DocumentController {
 
 	private final DocumentAttachmentService attachments;
 
+	private final CollabService collab;
+
 	public DocumentController(DocumentService documents, DocumentFolderService folders,
-			DocumentAttachmentService attachments) {
+			DocumentAttachmentService attachments, CollabService collab) {
+		this.collab = collab;
 		this.documents = documents;
 		this.folders = folders;
 		this.attachments = attachments;
@@ -138,6 +141,29 @@ public class DocumentController {
 	public DocumentDetail restore(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID documentId,
 			@PathVariable int number) {
 		return documents.restore(CurrentUser.id(jwt), documentId, number);
+	}
+
+	// ---- collaborative editing ----
+
+	public record Meta(@jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 200) String title,
+			@jakarta.validation.constraints.NotNull DocumentType type, UUID folderId) {
+	}
+
+	/** Everything a client needs to build the live document; the live updates then arrive over the WebSocket. */
+	@GetMapping("/api/documents/{documentId}/collab")
+	public CollabService.State collabState(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID documentId) {
+		return collab.state(CurrentUser.id(jwt), documentId);
+	}
+
+	@PostMapping("/api/documents/{documentId}/collab/snapshot")
+	public CollabService.SnapshotResult collabSnapshot(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID documentId,
+			@RequestBody CollabService.Snapshot request) {
+		return collab.snapshot(CurrentUser.id(jwt), documentId, request);
+	}
+
+	@PutMapping("/api/documents/{documentId}/collab/meta")
+	public DocumentDetail collabMeta(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID documentId, @Valid @RequestBody Meta request) {
+		return collab.updateMeta(CurrentUser.id(jwt), documentId, request.title(), request.type(), request.folderId());
 	}
 
 	// ---- links ----

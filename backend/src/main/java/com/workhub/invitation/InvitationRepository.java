@@ -13,10 +13,11 @@ interface InvitationRepository extends JpaRepository<Invitation, UUID> {
 
 	String VIEW = """
 			select new com.workhub.invitation.InvitationResponse(i.id, i.kind, i.email, i.workspaceId, w.name,
-				i.teamId, t.name, i.role, u.fullName, i.status, i.expiresAt, i.createdAt)
+				i.teamId, t.name, i.projectId, p.name, i.role, u.fullName, i.status, i.expiresAt, i.createdAt)
 			from Invitation i
 				join Workspace w on w.id = i.workspaceId
 				left join Team t on t.id = i.teamId
+				left join Project p on p.id = i.projectId
 				join User u on u.id = i.invitedBy
 			""";
 
@@ -24,8 +25,8 @@ interface InvitationRepository extends JpaRepository<Invitation, UUID> {
 
 	Optional<Invitation> findByTokenHash(String tokenHash);
 
-	List<Invitation> findAllByWorkspaceIdAndTeamIdAndKindAndEmailAndStatus(UUID workspaceId, UUID teamId,
-			InvitationKind kind, String email, InvitationStatus status);
+	List<Invitation> findAllByWorkspaceIdAndTeamIdAndProjectIdAndKindAndEmailAndStatus(UUID workspaceId, UUID teamId,
+			UUID projectId, InvitationKind kind, String email, InvitationStatus status);
 
 	@Query(VIEW + " where i.id = :id")
 	InvitationResponse findView(@Param("id") UUID id);
@@ -36,6 +37,9 @@ interface InvitationRepository extends JpaRepository<Invitation, UUID> {
 
 	@Query(VIEW + " where i.teamId = :teamId and" + PENDING + "order by i.createdAt desc")
 	List<InvitationResponse> findPendingInTeam(@Param("teamId") UUID teamId, @Param("now") Instant now);
+
+	@Query(VIEW + " where i.projectId = :projectId and" + PENDING + "order by i.createdAt desc")
+	List<InvitationResponse> findPendingInProject(@Param("projectId") UUID projectId, @Param("now") Instant now);
 
 	/** Pending email invitations addressed to {@code email}. */
 	@Query(VIEW + " where i.kind = com.workhub.invitation.InvitationKind.EMAIL and i.email = :email and" + PENDING

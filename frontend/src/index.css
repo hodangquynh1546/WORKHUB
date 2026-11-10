@@ -2872,3 +2872,188 @@ a.meeting-card:hover {
     box-shadow: none;
   }
 }
+
+/* ---------- Export, audit, print ---------- */
+.export-menu {
+  position: relative;
+}
+
+.export-panel {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 320px;
+  padding: 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-field);
+  box-shadow: var(--shadow-pop);
+  animation: pop-in 0.14s ease-out;
+}
+
+.export-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.workspace-actions {
+  margin-left: auto;
+}
+
+.account-link {
+  display: block;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.audit-intro {
+  max-width: 70ch;
+  margin: -0.5rem 0 1.25rem;
+}
+
+.audit-card {
+  padding: 0.5rem 1.25rem;
+  overflow-x: auto;
+}
+
+.audit-when {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.audit-failed {
+  background: var(--danger-soft);
+}
+
+.audit-badge {
+  margin-left: 0.5rem;
+}
+
+@media print {
+  :root {
+    --bg: #ffffff;
+    --surface: #ffffff;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .topbar,
+  .banner,
+  .tabs,
+  .toasts,
+  .no-print,
+  .filters,
+  .docs-sidebar,
+  .actions,
+  .segmented-control,
+  .chart-legend + .section-header,
+  button {
+    display: none !important;
+  }
+
+  .page {
+    padding: 0;
+  }
+
+  .card,
+  .chart-card {
+    border: 0;
+    box-shadow: none;
+    padding: 0.5rem 0;
+    break-inside: avoid;
+  }
+
+  .two-column,
+  .chart-grid-2,
+  .docs-layout {
+    display: block;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .chart-grid-2 > *,
+  .two-column > * {
+    margin-bottom: 1rem;
+  }
+}
+
+/* ---------- Live (collaborative) editor ---------- */
+.collab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.collab-status {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.collab-ready {
+  color: var(--success);
+}
+
+.collab-offline,
+.collab-error {
+  color: var(--danger);
+}
+
+.collab-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0 auto;
+  padding: 0;
+  list-style: none;
+}
+
+.collab-people li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.1rem 0.7rem;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 0.82rem;
+}
+
+.collab-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.collab-host .cm-editor {
+  min-height: 440px;
+}
+
+/* Remote cursors: the name tag stays small and quiet. */
+.collab-host .cm-ySelectionInfo {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 6px 6px 6px 0;
+  opacity: 1;
+}
+
+/* Backlog: expandable parent rows with their sub-tasks nested underneath */
+.expand-toggle { width: 24px; flex: none; padding: 0; background: none; border: 0; color: var(--ink); cursor: pointer; font-size: 1rem; line-height: 1; }
+.expand-spacer { display: inline-block; cursor: default; }
+.subtask-wrap { list-style: none; padding: 0 0 8px 40px; }
+.subtask-list { border-left: 2px solid var(--border, currentColor); margin-left: 12px; padding-left: 12px; display: grid; gap: 6px; }
+.subtask-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.9rem; }
+.subtask-row > :nth-last-child(2) { margin-left: auto; }

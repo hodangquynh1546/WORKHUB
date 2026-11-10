@@ -57,12 +57,15 @@ public class DocumentService {
 
 	private final MeetingRepository meetings;
 
+	private final CollabService collab;
+
 	private final Clock clock;
 
 	DocumentService(AccessService access, DocumentLoader loader, DocumentRepository documents,
 			DocumentFolderRepository folders, DocumentVersionRepository versions, DocumentLinkRepository links,
 			DocumentMapper mapper, IssueRepository issues, SprintRepository sprints, MeetingRepository meetings,
-			Clock clock) {
+			CollabService collab, Clock clock) {
+		this.collab = collab;
 		this.access = access;
 		this.loader = loader;
 		this.documents = documents;
@@ -122,6 +125,8 @@ public class DocumentService {
 		flush(document);
 		if (textChanged) {
 			versions.save(new DocumentVersion(document, trimNote(request.note()), userId));
+			// Anyone editing live now holds the old text: they must reload.
+			collab.reset(documentId);
 		}
 		return mapper.detail(document, loaded.access());
 	}
@@ -174,6 +179,7 @@ public class DocumentService {
 		document.revise(old.getTitle(), old.getContent(), userId);
 		flush(document);
 		versions.save(new DocumentVersion(document, "Khôi phục từ phiên bản " + number, userId));
+		collab.reset(documentId);
 		return mapper.detail(document, loaded.access());
 	}
 

@@ -36,11 +36,12 @@ class WorkspaceMemberTests {
 		Session member = TestApi.joinWorkspace(mockMvc, owner, ws, "MEMBER");
 
 		mockMvc.perform(get("/api/workspaces/" + ws).header("Authorization", owner.bearer()))
-			.andExpect(jsonPath("$.permissions.length()").value(5));
+			.andExpect(jsonPath("$.permissions.length()").value(6));
 		mockMvc.perform(get("/api/workspaces/" + ws).header("Authorization", admin.bearer()))
 			.andExpect(jsonPath("$.myRole").value("ADMIN"))
 			.andExpect(jsonPath("$.permissions[?(@ == 'MANAGE_ADMINS')]").isEmpty())
-			.andExpect(jsonPath("$.permissions[?(@ == 'MANAGE_MEMBERS')]").isNotEmpty());
+			.andExpect(jsonPath("$.permissions[?(@ == 'MANAGE_MEMBERS')]").isNotEmpty())
+			.andExpect(jsonPath("$.permissions[?(@ == 'VIEW_AUDIT')]").isNotEmpty());
 		mockMvc.perform(get("/api/workspaces").header("Authorization", member.bearer()))
 			.andExpect(jsonPath("$[0].permissions").value(org.hamcrest.Matchers.contains("VIEW")));
 	}

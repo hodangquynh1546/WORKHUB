@@ -39,7 +39,7 @@ public class ProjectMember {
 	protected ProjectMember() {
 	}
 
-	ProjectMember(UUID projectId, UUID userId, ProjectRole role) {
+	public ProjectMember(UUID projectId, UUID userId, ProjectRole role) {
 		this.projectId = projectId;
 		this.userId = userId;
 		this.role = role;

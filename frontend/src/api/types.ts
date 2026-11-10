@@ -15,7 +15,7 @@ export type AuthResponse = {
 }
 
 export type WorkspaceRole = 'OWNER' | 'ADMIN' | 'MEMBER'
-export type WorkspacePermission = 'VIEW' | 'UPDATE_SETTINGS' | 'MANAGE_MEMBERS' | 'MANAGE_ADMINS' | 'MANAGE_TEAMS'
+export type WorkspacePermission = 'VIEW' | 'UPDATE_SETTINGS' | 'MANAGE_MEMBERS' | 'MANAGE_ADMINS' | 'VIEW_AUDIT' | 'MANAGE_TEAMS'
 
 export type Workspace = {
   id: string
@@ -74,6 +74,9 @@ export type Invitation = {
   /** Set for team invitations; then `role` is a TeamRole, otherwise a WorkspaceRole. */
   teamId: string | null
   teamName: string | null
+  /** Set for project invitations; then `role` is a ProjectRole. */
+  projectId: string | null
+  projectName: string | null
   role: string
   invitedByName: string
   status: InvitationStatus
@@ -82,7 +85,7 @@ export type Invitation = {
 }
 
 export type InvitationCreated = { invitation: Invitation; inviteUrl: string }
-export type InvitationAccepted = { workspaceId: string; teamId: string | null }
+export type InvitationAccepted = { workspaceId: string; teamId: string | null; projectId: string | null }
 
 export type Methodology = 'SCRUM' | 'KANBAN'
 export type ProjectStatus = 'PLANNING' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED'
@@ -632,3 +635,20 @@ export type ChatMessage = {
 export type ChatMessagePage = { items: ChatMessage[]; hasMore: boolean }
 
 export type ChatSearchHit = { message: ChatMessage; conversationTitle: string }
+
+// ---- Audit log (M10) ----
+
+export type AuditEntry = {
+  id: string
+  createdAt: string
+  actorId: string | null
+  actorName: string | null
+  action: string
+  targetType: string | null
+  targetId: string | null
+  targetLabel: string | null
+  detail: string | null
+  outcome: 'SUCCESS' | 'FAILED'
+  projectId: string | null
+  ip: string | null
+}

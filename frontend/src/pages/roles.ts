@@ -20,7 +20,8 @@ export const INVITATION_STATUS_TEXT: Record<InvitationStatus, string> = {
 }
 
 /** Label for an invitation's role, which is a team role for team invitations. */
-export function invitationRoleLabel(teamId: string | null, role: string): string {
+export function invitationRoleLabel(teamId: string | null, role: string, projectId: string | null = null): string {
+  if (projectId) return PROJECT_ROLE_LABELS[role as ProjectRole] ?? role
   return teamId ? (TEAM_ROLE_LABELS[role as TeamRole] ?? role) : (ROLE_LABELS[role as WorkspaceRole] ?? role)
 }
 
