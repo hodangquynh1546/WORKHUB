@@ -10,6 +10,7 @@ import com.workhub.security.CurrentUser;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -54,6 +55,21 @@ public class WorkspaceController {
 	@GetMapping("/{workspaceId}/members")
 	public List<WorkspaceMemberResponse> members(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID workspaceId) {
 		return workspaceService.listMembers(CurrentUser.id(jwt), workspaceId);
+	}
+
+	@PutMapping("/{workspaceId}/members/{userId}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void changeMemberRole(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID workspaceId,
+			@PathVariable UUID userId, @Valid @RequestBody ChangeWorkspaceRoleRequest request) {
+		workspaceService.changeMemberRole(CurrentUser.id(jwt), workspaceId, userId, request.role());
+	}
+
+	/** Removing yourself means leaving the workspace. */
+	@DeleteMapping("/{workspaceId}/members/{userId}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void removeMember(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID workspaceId,
+			@PathVariable UUID userId) {
+		workspaceService.removeMember(CurrentUser.id(jwt), workspaceId, userId);
 	}
 
 }

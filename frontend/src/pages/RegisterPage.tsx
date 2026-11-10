@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { errorMessage } from '../api/errors'
 import { useAuth } from '../auth/AuthContext'
 import { AuthCard } from '../components/AuthCard'
@@ -8,6 +8,8 @@ import { Alert, Field } from '../components/Form'
 export function RegisterPage() {
   const { register } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const from = (location.state as { from?: string } | null)?.from ?? '/workspaces'
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -25,7 +27,7 @@ export function RegisterPage() {
     setError(null)
     try {
       await register(fullName.trim(), email.trim(), password)
-      navigate('/workspaces', { replace: true })
+      navigate(from, { replace: true })
     } catch (err) {
       setError(errorMessage(err))
       setBusy(false)
@@ -37,7 +39,10 @@ export function RegisterPage() {
       title="Tạo tài khoản"
       footer={
         <>
-          Đã có tài khoản? <Link to="/login">Đăng nhập</Link>
+          Đã có tài khoản?{' '}
+          <Link to="/login" state={location.state}>
+            Đăng nhập
+          </Link>
         </>
       }
     >

@@ -1,25 +1,20 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { api } from '../api/client'
 import { errorMessage } from '../api/errors'
 import type { Workspace } from '../api/types'
+import { useResource } from '../api/useResource'
 import { Alert, Field } from '../components/Form'
+import { MyInvitations } from '../components/MyInvitations'
 import { ROLE_LABELS } from './roles'
 
 export function WorkspacesPage() {
   const navigate = useNavigate()
-  const [workspaces, setWorkspaces] = useState<Workspace[] | null>(null)
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const { data: workspaces, error: loadError } = useResource<Workspace[]>('/api/workspaces')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    api<Workspace[]>('/api/workspaces')
-      .then(setWorkspaces)
-      .catch((err) => setLoadError(errorMessage(err)))
-  }, [])
 
   async function create(event: FormEvent) {
     event.preventDefault()
@@ -35,39 +30,42 @@ export function WorkspacesPage() {
   }
 
   return (
-    <div className="two-column">
-      <section>
-        <h1>Workspaces của bạn</h1>
-        <Alert>{loadError}</Alert>
-        {workspaces === null && !loadError && <p className="muted">Đang tải…</p>}
-        {workspaces?.length === 0 && <p className="muted">Bạn chưa tham gia workspace nào. Hãy tạo workspace đầu tiên.</p>}
-        <ul className="card-list">
-          {workspaces?.map((ws) => (
-            <li key={ws.id}>
-              <Link to={`/workspaces/${ws.id}`} className="card workspace-card">
-                <WorkspaceLogo workspace={ws} />
-                <div>
-                  <strong>{ws.name}</strong>
-                  {ws.description && <p className="muted">{ws.description}</p>}
-                </div>
-                <span className="badge">{ROLE_LABELS[ws.myRole]}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
-      <section className="card">
-        <h2>Tạo workspace mới</h2>
-        <form onSubmit={create} className="stack">
-          <Field label="Tên workspace" required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />
-          <Field label="Mô tả (không bắt buộc)" maxLength={1000} value={description} onChange={(e) => setDescription(e.target.value)} />
-          <Alert>{createError}</Alert>
-          <button type="submit" disabled={busy}>
-            Tạo workspace
-          </button>
-        </form>
-      </section>
-    </div>
+    <>
+      <MyInvitations />
+      <div className="two-column">
+        <section>
+          <h1>Workspaces của bạn</h1>
+          <Alert>{loadError}</Alert>
+          {workspaces === null && !loadError && <p className="muted">Đang tải…</p>}
+          {workspaces?.length === 0 && <p className="muted">Bạn chưa tham gia workspace nào. Hãy tạo workspace đầu tiên.</p>}
+          <ul className="card-list">
+            {workspaces?.map((ws) => (
+              <li key={ws.id}>
+                <Link to={`/workspaces/${ws.id}`} className="card workspace-card">
+                  <WorkspaceLogo workspace={ws} />
+                  <div>
+                    <strong>{ws.name}</strong>
+                    {ws.description && <p className="muted">{ws.description}</p>}
+                  </div>
+                  <span className="badge">{ROLE_LABELS[ws.myRole]}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+        <section className="card">
+          <h2>Tạo workspace mới</h2>
+          <form onSubmit={create} className="stack">
+            <Field label="Tên workspace" required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} />
+            <Field label="Mô tả (không bắt buộc)" maxLength={1000} value={description} onChange={(e) => setDescription(e.target.value)} />
+            <Alert>{createError}</Alert>
+            <button type="submit" disabled={busy}>
+              Tạo workspace
+            </button>
+          </form>
+        </section>
+      </div>
+    </>
   )
 }
 

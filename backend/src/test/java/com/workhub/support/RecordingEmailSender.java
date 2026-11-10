@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 @Primary
 public class RecordingEmailSender implements EmailSender {
 
-	private static final Pattern TOKEN = Pattern.compile("[?&]token=([A-Za-z0-9_-]+)");
+	private static final Pattern TOKEN = Pattern.compile("(?:[?&]token=|/invitations/)([A-Za-z0-9_-]+)");
 
 	public record Email(String to, String subject, String body) {
 	}

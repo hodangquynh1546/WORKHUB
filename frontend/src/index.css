@@ -339,3 +339,161 @@ button:disabled {
   font-weight: 500;
   font-size: 0.9rem;
 }
+
+/* M2: teams, members, invitations */
+h3 {
+  font-size: 1rem;
+  margin: 0.5rem 0 0;
+}
+
+select {
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.field select {
+  padding: 0.55rem 0.7rem;
+}
+
+.stack-lg {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.inline-check {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.inline-form .field {
+  flex: 1 1 220px;
+}
+
+.plain-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.plain-list li:last-child .row,
+.plain-list li.row:last-child {
+  border-bottom: 0;
+}
+
+.row > div {
+  min-width: 0;
+}
+
+.row-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.row-link:hover strong {
+  color: var(--accent);
+}
+
+.small {
+  font-size: 0.85rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.button-small {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.button-danger {
+  background: transparent;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.button-link {
+  display: inline-block;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--accent-text);
+  text-decoration: none;
+  border: 1px solid var(--accent);
+}
+
+.button-link-secondary {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.cell-actions {
+  text-align: right;
+}
+
+.segmented {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.invite-url {
+  display: block;
+  padding: 0.5rem;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+.invitations-inbox {
+  margin-bottom: 1.5rem;
+  border-color: var(--accent);
+}
+
+.badge-muted {
+  background: var(--border);
+  color: var(--muted);
+  vertical-align: middle;
+}
+
+.leave-button,
+.archive-button {
+  margin-top: 1rem;
+}
+
+.add-hint {
+  margin-top: 1rem;
+}

@@ -3,32 +3,40 @@ package com.workhub.workspace;
 import java.util.List;
 import java.util.UUID;
 
+import com.workhub.access.AccessService;
+import com.workhub.access.WorkspaceAccess;
+import com.workhub.access.WorkspacePermission;
 import com.workhub.common.ApiException;
 import com.workhub.common.Strings;
+import com.workhub.team.TeamMemberRepository;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Every operation takes the caller's id and checks membership here, in the backend.
- * Non-members get 404 rather than 403, so workspace ids cannot be probed.
- */
+/** Permission checks go through {@link AccessService}; non-members get 404 so workspace ids cannot be probed. */
 @Service
 @Transactional
 public class WorkspaceService {
+
+	private final AccessService access;
 
 	private final WorkspaceRepository workspaces;
 
 	private final WorkspaceMemberRepository members;
 
-	public WorkspaceService(WorkspaceRepository workspaces, WorkspaceMemberRepository members) {
+	private final TeamMemberRepository teamMembers;
+
+	public WorkspaceService(AccessService access, WorkspaceRepository workspaces, WorkspaceMemberRepository members,
+			TeamMemberRepository teamMembers) {
+		this.access = access;
 		this.workspaces = workspaces;
 		this.members = members;
+		this.teamMembers = teamMembers;
 	}
 
 	/** The creator becomes the workspace owner. */
 	public WorkspaceResponse create(UUID userId, WorkspaceRequest request) {
-		Workspace workspace = workspaces.save(new Workspace(request.name().strip(),
+		Workspace workspace = workspaces.saveAndFlush(new Workspace(request.name().strip(),
 				Strings.trimToNull(request.description()), Strings.trimToNull(request.logoUrl()), userId));
 		members.save(new WorkspaceMember(workspace.getId(), userId, WorkspaceRole.OWNER));
 		return WorkspaceResponse.of(workspace, WorkspaceRole.OWNER);
@@ -41,40 +49,65 @@ public class WorkspaceService {
 
 	@Transactional(readOnly = true)
 	public WorkspaceResponse get(UUID userId, UUID workspaceId) {
-		WorkspaceRole role = requireRole(userId, workspaceId);
-		return WorkspaceResponse.of(load(workspaceId), role);
+		WorkspaceAccess caller = access.workspace(userId, workspaceId);
+		return WorkspaceResponse.of(load(workspaceId), caller.role());
 	}
 
 	public WorkspaceResponse update(UUID userId, UUID workspaceId, WorkspaceRequest request) {
-		WorkspaceRole role = requireRole(userId, workspaceId);
-		if (!role.canManage()) {
-			throw ApiException.forbidden("FORBIDDEN", "Only workspace owners and admins can change settings");
-		}
+		WorkspaceAccess caller = access.workspace(userId, workspaceId).require(WorkspacePermission.UPDATE_SETTINGS);
 		Workspace workspace = load(workspaceId);
 		workspace.update(request.name().strip(), Strings.trimToNull(request.description()),
 				Strings.trimToNull(request.logoUrl()));
-		return WorkspaceResponse.of(workspace, role);
+		return WorkspaceResponse.of(workspace, caller.role());
 	}
 
 	@Transactional(readOnly = true)
 	public List<WorkspaceMemberResponse> listMembers(UUID userId, UUID workspaceId) {
-		requireRole(userId, workspaceId);
+		access.workspace(userId, workspaceId);
 		return members.findMembers(workspaceId);
 	}
 
-	/** The caller's role in the workspace; 404 when they are not a member. */
-	public WorkspaceRole requireRole(UUID userId, UUID workspaceId) {
-		return members.findByWorkspaceIdAndUserId(workspaceId, userId)
-			.map(WorkspaceMember::getRole)
-			.orElseThrow(WorkspaceService::notFound);
+	/** Only the owner promotes or demotes admins. The owner's own role cannot change here. */
+	public void changeMemberRole(UUID userId, UUID workspaceId, UUID memberId, WorkspaceRole role) {
+		access.workspace(userId, workspaceId).require(WorkspacePermission.MANAGE_ADMINS);
+		if (role == WorkspaceRole.OWNER) {
+			throw ApiException.badRequest("INVALID_ROLE", "Ownership cannot be assigned this way");
+		}
+		WorkspaceMember member = requireMember(workspaceId, memberId);
+		if (member.getRole() == WorkspaceRole.OWNER) {
+			throw ApiException.forbidden("OWNER_PROTECTED", "The owner's role cannot be changed");
+		}
+		member.changeRole(role);
+	}
+
+	/**
+	 * Removes a member (or lets the caller leave) and drops them from every team of the workspace.
+	 * Admins can remove members; only the owner can remove admins; nobody can remove the owner.
+	 */
+	public void removeMember(UUID userId, UUID workspaceId, UUID memberId) {
+		WorkspaceAccess caller = access.workspace(userId, workspaceId);
+		WorkspaceMember member = requireMember(workspaceId, memberId);
+		boolean leaving = memberId.equals(userId);
+		if (member.getRole() == WorkspaceRole.OWNER) {
+			throw leaving ? ApiException.conflict("OWNER_CANNOT_LEAVE", "The owner cannot leave the workspace")
+					: ApiException.forbidden("OWNER_PROTECTED", "The owner cannot be removed");
+		}
+		if (!leaving) {
+			caller.require((member.getRole() == WorkspaceRole.ADMIN) ? WorkspacePermission.MANAGE_ADMINS
+					: WorkspacePermission.MANAGE_MEMBERS);
+		}
+		members.delete(member);
+		teamMembers.deleteAllInWorkspace(workspaceId, memberId);
+	}
+
+	private WorkspaceMember requireMember(UUID workspaceId, UUID memberId) {
+		return members.findByWorkspaceIdAndUserId(workspaceId, memberId)
+			.orElseThrow(() -> ApiException.notFound("MEMBER_NOT_FOUND", "User is not a member of this workspace"));
 	}
 
 	private Workspace load(UUID workspaceId) {
-		return workspaces.findById(workspaceId).orElseThrow(WorkspaceService::notFound);
-	}
-
-	private static ApiException notFound() {
-		return ApiException.notFound("WORKSPACE_NOT_FOUND", "Workspace not found");
+		return workspaces.findById(workspaceId)
+			.orElseThrow(() -> ApiException.notFound("WORKSPACE_NOT_FOUND", "Workspace not found"));
 	}
 
 }

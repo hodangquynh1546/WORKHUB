@@ -60,7 +60,7 @@ public class AuthService {
 			throw ApiException.conflict("EMAIL_TAKEN", "Email is already registered");
 		}
 		checkPassword(request.password());
-		User user = users.save(new User(email, passwordEncoder.encode(request.password()), request.fullName().strip()));
+		User user = users.saveAndFlush(new User(email, passwordEncoder.encode(request.password()), request.fullName().strip()));
 		sendVerificationEmail(user);
 		return startSession(user);
 	}

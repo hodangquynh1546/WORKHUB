@@ -52,12 +52,12 @@ type RequestOptions = { method?: string; body?: unknown }
 
 /** Calls the backend. Retries once after refreshing the session when the access token has expired. */
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  // Auth endpoints are public; an expired token sent along would make them fail with 401.
-  const isAuthEndpoint = path.startsWith('/api/auth/')
+  // Public endpoints: an expired token sent along would make them fail with 401.
+  const isPublic = path.startsWith('/api/auth/') || path.startsWith('/api/public/')
   const send = () => {
     const headers: Record<string, string> = {}
     if (options.body !== undefined) headers['Content-Type'] = 'application/json'
-    if (accessToken && !isAuthEndpoint) headers.Authorization = `Bearer ${accessToken}`
+    if (accessToken && !isPublic) headers.Authorization = `Bearer ${accessToken}`
     return fetch(path, {
       method: options.method ?? 'GET',
       headers,
@@ -66,7 +66,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   }
 
   let res = await send()
-  if (res.status === 401 && accessToken && !isAuthEndpoint && (await refreshSession())) {
+  if (res.status === 401 && accessToken && !isPublic && (await refreshSession())) {
     res = await send()
   }
   if (res.status === 204) return undefined as T

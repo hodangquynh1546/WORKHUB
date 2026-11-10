@@ -122,6 +122,7 @@ class WorkspaceTests {
 				.content(json("name", name, "description", "Test workspace")))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.myRole").value("OWNER"))
+			.andExpect(jsonPath("$.createdAt").isNotEmpty())
 			.andReturn()
 			.getResponse()
 			.getContentAsString();

@@ -49,4 +49,8 @@ public class WorkspaceMember {
 		return role;
 	}
 
+	void changeRole(WorkspaceRole role) {
+		this.role = role;
+	}
+
 }

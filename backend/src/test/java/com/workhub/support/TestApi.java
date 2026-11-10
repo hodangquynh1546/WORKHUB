@@ -53,6 +53,62 @@ public final class TestApi {
 				JsonPath.read(body, "$.accessToken"), result.getResponse().getCookie(RefreshCookies.NAME));
 	}
 
+	/** Creates a workspace owned by {@code owner}. */
+	public static UUID createWorkspace(MockMvc mockMvc, Session owner, String name) throws Exception {
+		return idOf(mockMvc
+			.perform(post("/api/workspaces").header("Authorization", owner.bearer())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(json("name", name)))
+			.andExpect(status().isCreated())
+			.andReturn());
+	}
+
+	/** Creates a team in the workspace; {@code creator} needs MANAGE_TEAMS and becomes its lead. */
+	public static UUID createTeam(MockMvc mockMvc, Session creator, UUID workspaceId, String name) throws Exception {
+		return idOf(mockMvc
+			.perform(post("/api/workspaces/" + workspaceId + "/teams").header("Authorization", creator.bearer())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(json("name", name)))
+			.andExpect(status().isCreated())
+			.andReturn());
+	}
+
+	/** Registers a new user and brings them into the workspace with {@code role} through a link invitation. */
+	public static Session joinWorkspace(MockMvc mockMvc, Session inviter, UUID workspaceId, String role)
+			throws Exception {
+		Session member = register(mockMvc);
+		String token = linkToken(mockMvc, inviter, "/api/workspaces/" + workspaceId + "/invitations", role);
+		accept(mockMvc, member, token);
+		return member;
+	}
+
+	/** Creates a LINK invitation at {@code invitationsPath} and returns its raw token. */
+	public static String linkToken(MockMvc mockMvc, Session inviter, String invitationsPath, String role)
+			throws Exception {
+		String body = mockMvc
+			.perform(post(invitationsPath).header("Authorization", inviter.bearer())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(json("kind", "LINK", "role", role)))
+			.andExpect(status().isCreated())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		String url = JsonPath.read(body, "$.inviteUrl");
+		return url.substring(url.lastIndexOf('/') + 1);
+	}
+
+	public static void accept(MockMvc mockMvc, Session invitee, String token) throws Exception {
+		mockMvc
+			.perform(post("/api/invitations/accept").header("Authorization", invitee.bearer())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(json("token", token)))
+			.andExpect(status().isOk());
+	}
+
+	private static UUID idOf(MvcResult result) throws Exception {
+		return UUID.fromString(JsonPath.read(result.getResponse().getContentAsString(), "$.id"));
+	}
+
 	/** Builds a flat JSON object from key/value pairs; values are strings or null. */
 	public static String json(String... keyValues) {
 		StringBuilder json = new StringBuilder("{");

@@ -46,7 +46,8 @@ class AuthTests {
 		mockMvc.perform(get("/api/me").header("Authorization", session.bearer()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.email").value(session.email()))
-			.andExpect(jsonPath("$.emailVerified").value(false));
+			.andExpect(jsonPath("$.emailVerified").value(false))
+			.andExpect(jsonPath("$.createdAt").isNotEmpty());
 		assertThat(emails.lastToken(session.email(), "/verify-email")).isNotBlank();
 	}
 

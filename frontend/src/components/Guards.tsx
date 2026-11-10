@@ -14,10 +14,11 @@ export function RequireAuth() {
   return <Outlet />
 }
 
-/** Signed-out only (login, register): a signed-in user goes straight to the app. */
+/** Signed-out only (login, register): a signed-in user goes on to `state.from` or the app. */
 export function RedirectIfAuthenticated() {
   const { ready, user } = useAuth()
+  const from = (useLocation().state as { from?: string } | null)?.from
   if (!ready) return <Loading />
-  if (user) return <Navigate to="/workspaces" replace />
+  if (user) return <Navigate to={from ?? '/workspaces'} replace />
   return <Outlet />
 }

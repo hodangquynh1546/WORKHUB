@@ -12,6 +12,8 @@ public interface WorkspaceMemberRepository extends JpaRepository<WorkspaceMember
 
 	Optional<WorkspaceMember> findByWorkspaceIdAndUserId(UUID workspaceId, UUID userId);
 
+	boolean existsByWorkspaceIdAndUserId(UUID workspaceId, UUID userId);
+
 	@Query("""
 			select new com.workhub.workspace.WorkspaceMemberResponse(u.id, u.email, u.fullName, u.avatarUrl, m.role, m.joinedAt)
 			from WorkspaceMember m join User u on u.id = m.userId

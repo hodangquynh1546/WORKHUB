@@ -11,6 +11,19 @@ const MESSAGES: Record<string, string> = {
   WORKSPACE_NOT_FOUND: 'Không tìm thấy workspace hoặc bạn không phải thành viên.',
   FORBIDDEN: 'Bạn không có quyền thực hiện thao tác này.',
   CONFLICT: 'Dữ liệu bị trùng, vui lòng thử lại.',
+  TEAM_NOT_FOUND: 'Không tìm thấy team.',
+  TEAM_NAME_TAKEN: 'Workspace đã có team trùng tên.',
+  TEAM_ARCHIVED: 'Team đã được lưu trữ nên không thể thay đổi.',
+  MEMBER_NOT_FOUND: 'Người này không còn là thành viên.',
+  NOT_WORKSPACE_MEMBER: 'Người này chưa thuộc workspace. Hãy gửi lời mời.',
+  ALREADY_MEMBER: 'Người này đã là thành viên.',
+  OWNER_PROTECTED: 'Không thể thay đổi hoặc xóa chủ sở hữu workspace.',
+  OWNER_CANNOT_LEAVE: 'Chủ sở hữu không thể rời workspace.',
+  INVALID_ROLE: 'Vai trò không hợp lệ.',
+  EMAIL_REQUIRED: 'Vui lòng nhập email người được mời.',
+  INVITATION_NOT_FOUND: 'Không tìm thấy lời mời.',
+  INVITATION_INVALID: 'Lời mời đã được sử dụng, bị thu hồi hoặc đã hết hạn.',
+  INVITATION_EMAIL_MISMATCH: 'Lời mời này được gửi tới một email khác với tài khoản bạn đang đăng nhập.',
 }
 
 const FIELD_LABELS: Record<string, string> = {

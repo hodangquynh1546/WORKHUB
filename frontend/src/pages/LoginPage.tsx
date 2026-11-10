@@ -8,7 +8,8 @@ import { Alert, Field } from '../components/Form'
 export function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
-  const from = (useLocation().state as { from?: string } | null)?.from ?? '/workspaces'
+  const location = useLocation()
+  const from = (location.state as { from?: string } | null)?.from ?? '/workspaces'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -32,7 +33,10 @@ export function LoginPage() {
       title="Đăng nhập"
       footer={
         <>
-          Chưa có tài khoản? <Link to="/register">Đăng ký</Link>
+          Chưa có tài khoản?{' '}
+          <Link to="/register" state={location.state}>
+            Đăng ký
+          </Link>
         </>
       }
     >
