@@ -1,6 +1,7 @@
 package com.workhub.user;
 
 import java.time.Instant;
+import java.util.Locale;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -48,9 +49,27 @@ public class User {
 	}
 
 	public User(String email, String passwordHash, String fullName) {
-		this.email = email;
+		this.email = normalizeEmail(email);
 		this.passwordHash = passwordHash;
 		this.fullName = fullName;
+	}
+
+	/** Emails are compared case-insensitively, so they are stored lower-cased. */
+	public static String normalizeEmail(String email) {
+		return email.strip().toLowerCase(Locale.ROOT);
+	}
+
+	public void updateProfile(String fullName, String avatarUrl) {
+		this.fullName = fullName;
+		this.avatarUrl = avatarUrl;
+	}
+
+	public void changePasswordHash(String passwordHash) {
+		this.passwordHash = passwordHash;
+	}
+
+	public void markEmailVerified() {
+		this.emailVerified = true;
 	}
 
 	public UUID getId() {

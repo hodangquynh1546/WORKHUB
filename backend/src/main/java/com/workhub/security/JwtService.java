@@ -1,5 +1,6 @@
 package com.workhub.security;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -21,6 +22,10 @@ public class JwtService {
 	public JwtService(JwtEncoder encoder, JwtProperties properties) {
 		this.encoder = encoder;
 		this.properties = properties;
+	}
+
+	public Duration accessTokenTtl() {
+		return properties.accessTokenTtl();
 	}
 
 	public String issueAccessToken(UUID userId, String email) {

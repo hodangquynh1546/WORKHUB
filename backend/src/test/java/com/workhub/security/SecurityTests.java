@@ -13,6 +13,8 @@ import javax.crypto.spec.SecretKeySpec;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.junit.jupiter.api.Test;
 
+import com.workhub.support.TestApi;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -36,13 +38,13 @@ class SecurityTests {
 
 	@Test
 	void protectedEndpointAcceptsIssuedToken() throws Exception {
-		UUID userId = UUID.randomUUID();
-		String token = jwtService.issueAccessToken(userId, "quynh@example.com");
+		TestApi.Session session = TestApi.register(mockMvc);
+		String token = jwtService.issueAccessToken(session.userId(), session.email());
 
 		mockMvc.perform(get("/api/me").header("Authorization", "Bearer " + token))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.id").value(userId.toString()))
-			.andExpect(jsonPath("$.email").value("quynh@example.com"));
+			.andExpect(jsonPath("$.id").value(session.userId().toString()))
+			.andExpect(jsonPath("$.email").value(session.email()));
 	}
 
 	@Test

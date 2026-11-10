@@ -1,12 +1,13 @@
 name: workhub
 
+# Values come from the repo-root .env (see .env.example); the defaults below apply when it is absent.
 services:
   postgres:
     image: postgres:17
     environment:
       POSTGRES_DB: workhub
-      POSTGRES_USER: workhub
-      POSTGRES_PASSWORD: workhub
+      POSTGRES_USER: ${DB_USERNAME:-workhub}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-workhub}
     ports:
       # 5433 on the host avoids clashing with other local PostgreSQL instances on 5432.
       - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
