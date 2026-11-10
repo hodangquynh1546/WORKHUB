@@ -20,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class TeamService {
 
+	private final com.workhub.notification.NotificationService notifications;
+
 	private final AccessService access;
 
 	private final TeamRepository teams;
@@ -31,7 +33,8 @@ public class TeamService {
 	private final Clock clock;
 
 	public TeamService(AccessService access, TeamRepository teams, TeamMemberRepository members,
-			WorkspaceMemberRepository workspaceMembers, Clock clock) {
+			WorkspaceMemberRepository workspaceMembers, Clock clock, com.workhub.notification.NotificationService notifications) {
+		this.notifications = notifications;
 		this.access = access;
 		this.teams = teams;
 		this.members = members;
@@ -106,6 +109,8 @@ public class TeamService {
 			throw ApiException.conflict("ALREADY_MEMBER", "User is already on this team");
 		}
 		members.save(new TeamMember(teamId, request.userId(), request.role()));
+		notifications.notify(request.userId(), com.workhub.notification.NotificationType.INVITED_TO_TEAM,
+				"Bạn được thêm vào team " + team.team().getName(), null, "/teams/" + teamId, null, userId, null);
 	}
 
 	public void changeMemberRole(UUID userId, UUID teamId, UUID memberId, TeamRole role) {

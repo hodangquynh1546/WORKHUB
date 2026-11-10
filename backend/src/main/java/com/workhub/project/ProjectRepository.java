@@ -34,6 +34,10 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
 
 	boolean existsByWorkspaceIdAndProjectKey(UUID workspaceId, String projectKey);
 
+	/** Projects the user is a member of, archived ones excluded. */
+	@Query("select p from Project p where p.status <> com.workhub.project.ProjectStatus.ARCHIVED and p.id in (select m.projectId from ProjectMember m where m.userId = :userId)")
+	List<Project> findOfMember(@Param("userId") UUID userId);
+
 	@Query(ROWS + " where p.workspaceId = :workspaceId order by lower(p.name)")
 	List<ProjectRow> findRowsInWorkspace(@Param("workspaceId") UUID workspaceId, @Param("userId") UUID userId);
 

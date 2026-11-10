@@ -8,6 +8,7 @@ import { Alert, Field, TextArea } from '../../components/Form'
 import { SPRINT_STATUS_LABELS } from '../issueLabels'
 import { formatDay, localIsoDate } from '../roles'
 import { useProject } from './projectContext'
+import { useLiveReload } from '../../realtime/useLiveReload'
 
 function SprintRow({ sprint, projectId }: { sprint: Sprint; projectId: string }) {
   return (
@@ -31,6 +32,7 @@ export function SprintsPage() {
   const { project } = useProject()
   const canManage = project.permissions.includes('MANAGE_SPRINTS') && project.status !== 'ARCHIVED'
   const { data: sprints, error, reload } = useResource<Sprint[]>(`/api/projects/${project.id}/sprints`)
+  useLiveReload(project.id, ['sprints'], reload)
   const [creating, setCreating] = useState(false)
 
   if (project.methodology !== 'SCRUM') {

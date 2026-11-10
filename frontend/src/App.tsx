@@ -20,6 +20,10 @@ import { DocumentsPage } from './pages/documents/DocumentsPage'
 import { CalendarPage } from './pages/meetings/CalendarPage'
 import { MeetingPage } from './pages/meetings/MeetingPage'
 import { MeetingsPage } from './pages/meetings/MeetingsPage'
+import { ChatPage } from './pages/chat/ChatPage'
+import { NotificationsPage } from './pages/NotificationsPage'
+import { ProjectChatRedirect } from './pages/chat/ProjectChatRedirect'
+import { RealtimeProvider } from './realtime/RealtimeProvider'
 import { ReportsPage } from './pages/project/ReportsPage'
 import { SettingsPage } from './pages/project/SettingsPage'
 import { TeamPage } from './pages/TeamPage'
@@ -30,6 +34,7 @@ import { WorkspacesPage } from './pages/WorkspacesPage'
 export default function App() {
   return (
     <AuthProvider>
+      <RealtimeProvider>
       <BrowserRouter>
         <Routes>
           <Route element={<RedirectIfAuthenticated />}>
@@ -45,6 +50,9 @@ export default function App() {
             <Route element={<Layout />}>
               <Route path="/workspaces" element={<WorkspacesPage />} />
               <Route path="/workspaces/:workspaceId" element={<WorkspacePage />} />
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/chat/:conversationId" element={<ChatPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/teams/:teamId" element={<TeamPage />} />
               <Route path="/issues/:issueId" element={<IssuePage />} />
               <Route path="/projects/:projectId" element={<ProjectLayout />}>
@@ -58,6 +66,7 @@ export default function App() {
                 <Route path="meetings" element={<MeetingsPage />} />
                 <Route path="meetings/:meetingId" element={<MeetingPage />} />
                 <Route path="calendar" element={<CalendarPage />} />
+                <Route path="chat" element={<ProjectChatRedirect />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="members" element={<MembersPage />} />
                 <Route path="settings" element={<SettingsPage />} />
@@ -67,6 +76,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/workspaces" replace />} />
         </Routes>
       </BrowserRouter>
+      </RealtimeProvider>
     </AuthProvider>
   )
 }

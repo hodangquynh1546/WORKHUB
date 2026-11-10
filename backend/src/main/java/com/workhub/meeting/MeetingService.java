@@ -20,6 +20,8 @@ import com.workhub.issue.IssueService;
 import com.workhub.issue.IssueType;
 import com.workhub.meeting.MeetingResponses.MeetingDetail;
 import com.workhub.meeting.MeetingResponses.MeetingSummary;
+import com.workhub.notification.NotificationService;
+import com.workhub.notification.NotificationType;
 import com.workhub.project.ProjectMemberRepository;
 import com.workhub.sprint.SprintRepository;
 
@@ -41,6 +43,8 @@ public class MeetingService {
 
 	private static final int LIST_LIMIT = 500;
 
+	private final NotificationService notifications;
+
 	private final AccessService access;
 
 	private final MeetingRepository meetings;
@@ -61,7 +65,8 @@ public class MeetingService {
 
 	MeetingService(AccessService access, MeetingRepository meetings, MeetingAttendeeRepository attendees,
 			MeetingActionItemRepository actionItems, MeetingMapper mapper, ProjectMemberRepository projectMembers,
-			SprintRepository sprints, IssueService issueService, Clock clock) {
+			SprintRepository sprints, IssueService issueService, Clock clock, NotificationService notifications) {
+		this.notifications = notifications;
 		this.access = access;
 		this.meetings = meetings;
 		this.attendees = attendees;
@@ -101,7 +106,7 @@ public class MeetingService {
 		Meeting meeting = new Meeting(projectId, userId);
 		apply(meeting, request, userId);
 		meeting = meetings.saveAndFlush(meeting);
-		replaceAttendees(meeting.getId(), request.attendeeIds());
+		replaceAttendees(meeting.getId(), request.attendeeIds(), userId);
 		return mapper.detail(meeting, caller);
 	}
 
@@ -109,7 +114,7 @@ public class MeetingService {
 		Loaded loaded = editable(userId, meetingId);
 		apply(loaded.meeting(), request, userId);
 		meetings.saveAndFlush(loaded.meeting());
-		replaceAttendees(meetingId, request.attendeeIds());
+		replaceAttendees(meetingId, request.attendeeIds(), userId);
 		return mapper.detail(loaded.meeting(), loaded.access());
 	}
 
@@ -117,6 +122,16 @@ public class MeetingService {
 		Loaded loaded = editable(userId, meetingId);
 		loaded.meeting().setStatus(cancelled ? MeetingStatus.CANCELLED : MeetingStatus.SCHEDULED);
 		meetings.saveAndFlush(loaded.meeting());
+		if (cancelled) {
+			Set<UUID> audience = attendees.findAllByMeetingId(meetingId)
+				.stream()
+				.map(MeetingAttendee::getUserId)
+				.collect(Collectors.toCollection(java.util.LinkedHashSet::new));
+			audience.add(loaded.meeting().getOrganizerId());
+			notifications.notifyAll(audience, NotificationType.MEETING_CANCELLED, "Cuộc họp \"" + loaded.meeting().getTitle() + "\" đã bị hủy",
+					null, "/projects/" + loaded.meeting().getProjectId() + "/meetings/" + meetingId,
+					loaded.meeting().getProjectId(), userId, null);
+		}
 		return mapper.detail(loaded.meeting(), loaded.access());
 	}
 
@@ -244,7 +259,7 @@ public class MeetingService {
 	}
 
 	/** Replaces the invited people; those who stay keep their reply. The organizer is not listed twice. */
-	private void replaceAttendees(UUID meetingId, List<UUID> wanted) {
+	private void replaceAttendees(UUID meetingId, List<UUID> wanted, UUID actorId) {
 		Meeting meeting = meetings.findById(meetingId).orElseThrow(MeetingService::notFound);
 		Set<UUID> ids = (wanted == null) ? Set.of() : new LinkedHashSet<>(wanted);
 		ids = ids.stream().filter((id) -> !id.equals(meeting.getOrganizerId())).collect(Collectors.toCollection(LinkedHashSet::new));
@@ -259,6 +274,8 @@ public class MeetingService {
 		for (UUID id : ids) {
 			if (!existing.containsKey(id)) {
 				attendees.save(new MeetingAttendee(meetingId, id));
+				notifications.notify(id, NotificationType.MEETING_INVITED, "Bạn được mời họp: " + meeting.getTitle(), null,
+						"/projects/" + meeting.getProjectId() + "/meetings/" + meetingId, meeting.getProjectId(), actorId, null);
 			}
 		}
 	}

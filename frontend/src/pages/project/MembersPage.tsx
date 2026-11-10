@@ -8,6 +8,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { Alert } from '../../components/Form'
 import { PROJECT_ROLE_LABELS, PROJECT_ROLES } from '../roles'
 import { useProject } from './projectContext'
+import { useLiveReload } from '../../realtime/useLiveReload'
 
 function RoleOptions() {
   return PROJECT_ROLES.map((role) => (
@@ -22,6 +23,7 @@ export function MembersPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { data: members, error, reload } = useResource<ProjectMember[]>(`/api/projects/${project.id}/members`)
+  useLiveReload(project.id, ['members'], reload)
   const [actionError, setActionError] = useState<string | null>(null)
   const canManage = project.permissions.includes('MANAGE_MEMBERS') && project.status !== 'ARCHIVED'
   const memberPath = (userId: string) => `/api/projects/${project.id}/members/${userId}`

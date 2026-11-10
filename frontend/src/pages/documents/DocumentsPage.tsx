@@ -8,6 +8,7 @@ import { Alert, Field } from '../../components/Form'
 import { ListSkeleton } from '../../components/Skeleton'
 import { useProject } from '../project/projectContext'
 import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS, formatWhen } from './labels'
+import { useLiveReload } from '../../realtime/useLiveReload'
 
 const ALL = 'all'
 const UNFILED = 'none'
@@ -49,6 +50,10 @@ export function DocumentsPage() {
   if (selected === UNFILED) query.set('unfiled', 'true')
   else if (selected !== ALL) query.set('folderId', selected)
   const list = useResource<Page<DocumentSummary>>(`/api/projects/${project.id}/documents?${query}`)
+  useLiveReload(project.id, ['documents'], () => {
+    list.reload()
+    folders.reload()
+  })
 
   const tree = useMemo(() => flatten(folders.data ?? []), [folders.data])
   const current = folders.data?.find((f) => f.id === selected)

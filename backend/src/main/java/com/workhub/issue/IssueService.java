@@ -27,7 +27,11 @@ import com.workhub.issue.IssueResponses.IssueResponse;
 import com.workhub.issue.IssueResponses.ProjectStats;
 import com.workhub.project.Project;
 import com.workhub.project.ProjectMemberRepository;
+import com.workhub.alert.AlertSettingsService;
+import com.workhub.notification.NotificationService;
+import com.workhub.notification.NotificationType;
 import com.workhub.project.ProjectRepository;
+import com.workhub.project.ProjectRole;
 import com.workhub.sprint.SprintRepository;
 import com.workhub.sprint.SprintStatus;
 import com.workhub.user.User;
@@ -52,6 +56,10 @@ public class IssueService {
 	private static final long RANK_GAP = 1024;
 
 	private static final int MAX_PAGE_SIZE = 200;
+
+	private final NotificationService notifications;
+
+	private final AlertSettingsService alertSettings;
 
 	private final AccessService access;
 
@@ -84,7 +92,10 @@ public class IssueService {
 	public IssueService(AccessService access, IssueLoader loader, IssueRepository issues, IssueMapper mapper,
 			ProjectRepository projects, ProjectMemberRepository projectMembers, ChecklistItemRepository checklist,
 			IssueActivityRepository activity, UserRepository users, Clock clock, ZoneId zone,
-			WorkflowService workflow, SprintRepository sprints, ApplicationEventPublisher events) {
+			WorkflowService workflow, SprintRepository sprints, ApplicationEventPublisher events,
+			NotificationService notifications, AlertSettingsService alertSettings) {
+		this.notifications = notifications;
+		this.alertSettings = alertSettings;
 		this.access = access;
 		this.loader = loader;
 		this.issues = issues;
@@ -264,11 +275,22 @@ public class IssueService {
 		if (issue.getStatus() != status) {
 			workflow.requireEnabled(issue.getProjectId(), status);
 		}
+		IssueStatus before = issue.getStatus();
 		History history = new History(issue.getId(), userId);
 		history.value("status", issue.getStatus(), status);
 		issue.changeStatus(status, clock.instant());
 		history.saveTo(activity);
 		announce(issue);
+		if (before != status) {
+			String key = IssueMapper.key(loaded.access().project(), issue);
+			java.util.Set<UUID> audience = new java.util.LinkedHashSet<>();
+			audience.add(issue.getAssigneeId());
+			audience.add(issue.getReporterId());
+			audience.remove(null);
+			notifications.notifyAll(audience, NotificationType.ISSUE_STATUS_CHANGED,
+					key + " chuyển sang " + statusName(issue.getProjectId(), status), issue.getTitle(),
+					"/issues/" + issue.getId(), issue.getProjectId(), userId, null);
+		}
 		return mapper.toResponse(loaded.access().project(), issue, true);
 	}
 
@@ -280,9 +302,28 @@ public class IssueService {
 		History history = new History(issue.getId(), userId);
 		history.value("blocked", issue.isBlocked(), blocked);
 		history.value("blockedReason", issue.getBlockedReason(), cleanReason);
+		boolean wasBlocked = issue.isBlocked();
 		issue.setBlocked(blocked, cleanReason);
 		history.saveTo(activity);
+		if (blocked && !wasBlocked && alertSettings.valuesOf(issue.getProjectId()).blockedEnabled()) {
+			java.util.Set<UUID> audience = new java.util.LinkedHashSet<>(projectMembers.findUserIdsByRole(issue.getProjectId(),
+					java.util.List.of(ProjectRole.PROJECT_MANAGER, ProjectRole.SCRUM_MASTER, ProjectRole.PRODUCT_OWNER)));
+			audience.add(issue.getAssigneeId());
+			audience.remove(null);
+			notifications.notifyAll(audience, NotificationType.TASK_BLOCKED,
+					IssueMapper.key(loaded.access().project(), issue) + " bị chặn", (cleanReason != null) ? cleanReason : issue.getTitle(),
+					"/issues/" + issue.getId(), issue.getProjectId(), userId, null);
+		}
 		return mapper.toResponse(loaded.access().project(), issue, true);
+	}
+
+	private String statusName(UUID projectId, IssueStatus status) {
+		return workflow.columns(projectId)
+			.stream()
+			.filter((entry) -> entry.status() == status)
+			.map(com.workhub.board.WorkflowEntry::name)
+			.findFirst()
+			.orElse(status.name());
 	}
 
 	/** Lets the sprint module refresh its numbers when a sprint issue's status or points change. */
@@ -300,8 +341,14 @@ public class IssueService {
 		}
 		History history = new History(issue.getId(), userId);
 		history.value("assignee", userName(issue.getAssigneeId()), userName(assigneeId));
+		UUID previous = issue.getAssigneeId();
 		issue.setAssigneeId(assigneeId);
 		history.saveTo(activity);
+		if (assigneeId != null && !assigneeId.equals(previous)) {
+			notifications.notify(assigneeId, NotificationType.ISSUE_ASSIGNED,
+					"Bạn được giao " + IssueMapper.key(loaded.access().project(), issue) + ": " + issue.getTitle(), null,
+					"/issues/" + issue.getId(), issue.getProjectId(), userId, null);
+		}
 		return mapper.toResponse(loaded.access().project(), issue, true);
 	}
 

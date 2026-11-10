@@ -17,6 +17,9 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, UUID> {
 
 	long countByTeamId(UUID teamId);
 
+	@Query("select m.userId from TeamMember m where m.teamId = :teamId")
+	List<UUID> findUserIds(@Param("teamId") UUID teamId);
+
 	@Query("""
 			select new com.workhub.team.TeamMemberResponse(u.id, u.email, u.fullName, u.avatarUrl, m.role, m.joinedAt)
 			from TeamMember m join User u on u.id = m.userId

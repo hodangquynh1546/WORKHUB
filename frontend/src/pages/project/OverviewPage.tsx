@@ -4,6 +4,7 @@ import type { ProjectMember, ProjectRole, ProjectStats, Sprint } from '../../api
 import { useResource } from '../../api/useResource'
 import { Alert } from '../../components/Form'
 import { formatDay, localIsoDate, METHODOLOGY_LABELS, PROJECT_ROLE_LABELS, PROJECT_ROLES, PROJECT_STATUS_LABELS, scheduleProgress } from '../roles'
+import { AlertsCard } from './AlertsCard'
 import { useProject } from './projectContext'
 
 function RunningSprint({ projectId }: { projectId: string }) {
@@ -77,6 +78,8 @@ export function OverviewPage() {
         </section>
 
         {project.methodology === 'SCRUM' && <RunningSprint projectId={project.id} />}
+
+        <AlertsCard projectId={project.id} />
 
         <section className="card stack">
           <h2>Công việc</h2>

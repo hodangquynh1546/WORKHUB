@@ -6,6 +6,7 @@ import { Alert } from '../../components/Form'
 import { useProject } from '../project/projectContext'
 import { MEETING_TYPE_LABELS, formatDayLong, formatTime } from './labels'
 import type { MeetingType } from '../../api/types'
+import { useLiveReload } from '../../realtime/useLiveReload'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 /** yyyy-mm-dd of a Date in the browser's timezone. */
@@ -41,7 +42,9 @@ export function CalendarPage() {
   // One day of slack on both sides: the server cuts days in its own timezone, the browser in the viewer's.
   const from = iso(addDays(days[0], -1))
   const to = iso(addDays(days[41], 1))
-  const { data, error } = useResource<{ events: CalendarEvent[] }>(`/api/projects/${project.id}/calendar?from=${from}&to=${to}${personId ? `&personId=${personId}` : ''}`)
+  const { data, error, reload } = useResource<{ events: CalendarEvent[] }>(`/api/projects/${project.id}/calendar?from=${from}&to=${to}${personId ? `&personId=${personId}` : ''}`)
+
+  useLiveReload(project.id, ['meetings', 'sprints', 'issues'], reload)
 
   const byDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>()

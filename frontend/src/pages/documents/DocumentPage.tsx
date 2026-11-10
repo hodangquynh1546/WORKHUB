@@ -22,6 +22,7 @@ import { PageSkeleton } from '../../components/Skeleton'
 import { useProject } from '../project/projectContext'
 import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS, formatBytes, formatWhen } from './labels'
 import { diffLines } from './lineDiff'
+import { useLiveReload } from '../../realtime/useLiveReload'
 
 type Draft = { title: string; type: DocumentType; folderId: string; content: string; note: string; baseVersion: number }
 
@@ -40,6 +41,11 @@ export function DocumentPage() {
   const navigate = useNavigate()
   const { data: doc, error, reload } = useResource<DocumentDetail>(`/api/documents/${documentId}`)
   const folders = useResource<DocumentFolder[]>(`/api/projects/${project.id}/document-folders`)
+  useLiveReload(project.id, ['documents'], () => {
+    // Never reload over a draft being edited; the conflict check at save time covers the rest.
+    reload()
+    folders.reload()
+  })
   const [draft, setDraft] = useState<Draft | null>(null)
   const [viewing, setViewing] = useState<DocumentVersionDetail | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)

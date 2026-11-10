@@ -39,7 +39,7 @@ public class IssueCollaborationController {
 	@ResponseStatus(HttpStatus.CREATED)
 	public CommentResponse addComment(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID issueId,
 			@Valid @RequestBody IssueRequests.CommentBody request) {
-		return service.addComment(CurrentUser.id(jwt), issueId, request.body());
+		return service.addComment(CurrentUser.id(jwt), issueId, request.body(), request.mentions());
 	}
 
 	@PutMapping("/api/comments/{commentId}")

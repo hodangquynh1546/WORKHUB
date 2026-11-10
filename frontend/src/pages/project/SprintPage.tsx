@@ -11,12 +11,14 @@ import { GOAL_OUTCOME_LABELS, REFINEMENT_LABELS, SPRINT_STATUS_LABELS } from '..
 import { formatDay, localIsoDate, scheduleProgress } from '../roles'
 import { useProject } from './projectContext'
 import { PageSkeleton } from '../../components/Skeleton'
+import { useLiveReload } from '../../realtime/useLiveReload'
 
 export function SprintPage() {
   const { sprintId } = useParams()
   const { project } = useProject()
   const [today] = useState(() => localIsoDate())
   const { data: detail, error, reload } = useResource<SprintDetail>(`/api/sprints/${sprintId}?today=${today}`)
+  useLiveReload(project.id, ['sprints', 'issues'], reload)
 
   if (error) {
     return (

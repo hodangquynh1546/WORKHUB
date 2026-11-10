@@ -17,6 +17,7 @@ import {
 } from '../issueLabels'
 import { useProject } from './projectContext'
 import { ListSkeleton } from '../../components/Skeleton'
+import { useLiveReload } from '../../realtime/useLiveReload'
 
 const PAGE_SIZE = 200
 /** Sub-tasks need a parent, so they are created from their parent's page. */
@@ -99,6 +100,7 @@ export function BacklogPage() {
   }, [project.id, query, version])
 
   const reload = () => setVersion((v) => v + 1)
+  useLiveReload(project.id, ['issues', 'sprints'], reload)
   const set = <K extends keyof Filters>(key: K, value: Filters[K]) => setFilters((f) => ({ ...f, [key]: value }))
 
   function replace(updated: Issue) {

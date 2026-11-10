@@ -541,3 +541,94 @@ export type CalendarEvent = {
   status: string
   detail: string | null
 }
+
+// ---- Notifications, alerts, chat (M9) ----
+
+export type NotificationType =
+  | 'ISSUE_ASSIGNED'
+  | 'ISSUE_STATUS_CHANGED'
+  | 'ISSUE_COMMENTED'
+  | 'MENTIONED'
+  | 'INVITED_TO_TEAM'
+  | 'INVITED_TO_PROJECT'
+  | 'MEETING_INVITED'
+  | 'MEETING_CANCELLED'
+  | 'MEETING_REMINDER'
+  | 'SPRINT_STARTED'
+  | 'SPRINT_COMPLETED'
+  | 'TASK_BLOCKED'
+  | 'ALERT_OVERDUE'
+  | 'ALERT_DUE_SOON'
+  | 'ALERT_SPRINT_AT_RISK'
+  | 'ALERT_SCOPE_CHANGE'
+  | 'ALERT_OVERLOAD'
+  | 'ALERT_NO_PROGRESS'
+
+export type AppNotification = {
+  id: string
+  type: NotificationType
+  alert: boolean
+  title: string
+  body: string | null
+  link: string | null
+  projectId: string | null
+  actorId: string | null
+  read: boolean
+  createdAt: string
+}
+
+export type NotificationPage = { items: AppNotification[]; page: number; size: number; total: number; unread: number }
+
+export type NotificationPreference = { type: NotificationType; alert: boolean; inApp: boolean; email: boolean }
+
+export type ProjectAlert = {
+  kind: NotificationType
+  severity: 'INFO' | 'WARNING' | 'CRITICAL'
+  title: string
+  detail: string | null
+  link: string | null
+  subjectId: string | null
+}
+
+export type AlertSettings = {
+  overdueEnabled: boolean
+  dueSoonDays: number
+  sprintRiskDaysLeft: number
+  sprintRiskOpenPct: number
+  blockedEnabled: boolean
+  overloadOpenIssues: number
+  scopeChangePct: number
+  noProgressDays: number
+}
+
+export type ConversationKind = 'PROJECT' | 'TEAM' | 'DIRECT' | 'GROUP'
+
+export type ConversationSummary = {
+  id: string
+  kind: ConversationKind
+  title: string
+  projectId: string | null
+  teamId: string | null
+  other: UserRef | null
+  memberCount: number
+  last: { senderId: string; senderName: string; snippet: string; createdAt: string } | null
+  unread: number
+  lastMessageAt: string | null
+}
+
+export type ChatMessage = {
+  id: string
+  conversationId: string
+  sender: UserRef | null
+  body: string | null
+  replyTo: { id: string; senderName: string; snippet: string | null; deleted: boolean } | null
+  createdAt: string
+  editedAt: string | null
+  deleted: boolean
+  reactions: { emoji: string; userIds: string[] }[]
+  mentions: string[]
+}
+
+export type ChatMessagePage = { items: ChatMessage[]; hasMore: boolean }
+
+export type ChatSearchHit = { message: ChatMessage; conversationTitle: string }

@@ -6,6 +6,7 @@ import type { Methodology, Project, ProjectStatus, WorkflowEntry } from '../../a
 import { useWorkflow } from '../../api/useWorkflow'
 import { Alert, Field } from '../../components/Form'
 import { METHODOLOGY_LABELS, PROJECT_STATUS_LABELS, PROJECT_STATUSES } from '../roles'
+import { AlertSettingsCard } from './AlertSettingsCard'
 import { useProject } from './projectContext'
 
 type Message = { ok: boolean; text: string } | null
@@ -20,6 +21,7 @@ export function SettingsPage() {
       <div className="stack-lg">
         <StatusForm />
         <WorkflowForm />
+        <AlertSettingsCard projectId={project.id} />
       </div>
     </div>
   )

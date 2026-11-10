@@ -30,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class ProjectService {
 
+	private final com.workhub.notification.NotificationService notifications;
+
 	private final AccessService access;
 
 	private final ProjectRepository projects;
@@ -46,7 +48,8 @@ public class ProjectService {
 
 	public ProjectService(AccessService access, ProjectRepository projects, ProjectMemberRepository members,
 			TeamRepository teams, WorkspaceMemberRepository workspaceMembers, IssueRepository issues,
-			SprintRepository sprints) {
+			SprintRepository sprints, com.workhub.notification.NotificationService notifications) {
+		this.notifications = notifications;
 		this.access = access;
 		this.projects = projects;
 		this.members = members;
@@ -143,6 +146,8 @@ public class ProjectService {
 		}
 		requireRoleFree(projectId, request.role());
 		members.save(new ProjectMember(projectId, request.userId(), request.role()));
+		notifications.notify(request.userId(), com.workhub.notification.NotificationType.INVITED_TO_PROJECT,
+				"Bạn được thêm vào dự án " + project.project().getName(), null, "/projects/" + projectId, projectId, userId, null);
 	}
 
 	public void changeMemberRole(UUID userId, UUID projectId, UUID memberId, ProjectRole role) {

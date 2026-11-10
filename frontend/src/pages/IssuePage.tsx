@@ -38,6 +38,8 @@ import {
   TYPE_LABELS,
 } from './issueLabels'
 import { PageSkeleton } from '../components/Skeleton'
+import { useLiveReload } from '../realtime/useLiveReload'
+import { extractMentions } from './chat/mentions'
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('vi-VN')
@@ -65,6 +67,12 @@ export function IssuePage() {
 function IssueView({ detail, project, reload }: { detail: IssueDetail; project: Project; reload: () => void }) {
   const { issue, children, checklist, permissions } = detail
   const navigate = useNavigate()
+  // Comments and history load themselves; this counter makes them reload together with the issue.
+  const [liveTick, setLiveTick] = useState(0)
+  useLiveReload(project.id, ['issues'], () => {
+    reload()
+    setLiveTick((t) => t + 1)
+  })
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { data: members } = useResource<ProjectMember[]>(`/api/projects/${project.id}/members`)
@@ -168,7 +176,7 @@ function IssueView({ detail, project, reload }: { detail: IssueDetail; project: 
             <ChildrenSection issue={issue} childIssues={children} names={workflow.names} canEdit={canEdit} onCreated={reload} />
           )}
           <Checklist issueId={issue.id} items={checklist} canEdit={canEdit} onChanged={reload} />
-          <Comments issueId={issue.id} canComment={permissions.includes('COMMENT') && active} canModerate={permissions.includes('UPDATE_PROJECT')} />
+          <Comments liveTick={liveTick} issueId={issue.id} projectId={project.id} canComment={permissions.includes('COMMENT') && active} canModerate={permissions.includes('UPDATE_PROJECT')} />
         </div>
 
         <div className="stack-lg">
@@ -484,9 +492,10 @@ function Checklist({ issueId, items, canEdit, onChanged }: { issueId: string; it
   )
 }
 
-function Comments({ issueId, canComment, canModerate }: { issueId: string; canComment: boolean; canModerate: boolean }) {
+function Comments({ issueId, projectId, liveTick, canComment, canModerate }: { issueId: string; projectId: string; liveTick: number; canComment: boolean; canModerate: boolean }) {
   const { user } = useAuth()
-  const { data: comments, error: loadError, reload } = useResource<IssueComment[]>(`/api/issues/${issueId}/comments`)
+  const { data: comments, error: loadError, reload } = useResource<IssueComment[]>(`/api/issues/${issueId}/comments?v=${liveTick}`)
+  const { data: members } = useResource<ProjectMember[]>(`/api/projects/${projectId}/members`)
   const [body, setBody] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editBody, setEditBody] = useState('')
@@ -564,15 +573,35 @@ function Comments({ issueId, canComment, canModerate }: { issueId: string; canCo
           onSubmit={(e) => {
             e.preventDefault()
             run(async () => {
-              await api(`/api/issues/${issueId}/comments`, { method: 'POST', body: { body } })
+              const people = (members ?? []).map((m) => ({ id: m.userId, fullName: m.fullName, avatarUrl: m.avatarUrl }))
+              await api(`/api/issues/${issueId}/comments`, { method: 'POST', body: { body, mentions: extractMentions(body, people, user?.id) } })
               setBody('')
             })
           }}
         >
           <TextArea label="Viết bình luận" maxLength={5000} value={body} onChange={(e) => setBody(e.target.value)} />
-          <button type="submit" disabled={!body.trim()}>
-            Gửi bình luận
-          </button>
+          <div className="actions">
+            <button type="submit" disabled={!body.trim()}>
+              Gửi bình luận
+            </button>
+            <select
+              value=""
+              aria-label="Nhắc đến một thành viên"
+              onChange={(e) => {
+                const member = members?.find((m) => m.userId === e.target.value)
+                if (member) setBody((b) => `${b}${b && !b.endsWith(' ') ? ' ' : ''}@${member.fullName} `)
+              }}
+            >
+              <option value="">Nhắc đến…</option>
+              {members
+                ?.filter((m) => m.userId !== user?.id)
+                .map((m) => (
+                  <option key={m.userId} value={m.userId}>
+                    {m.fullName}
+                  </option>
+                ))}
+            </select>
+          </div>
         </form>
       )}
     </section>

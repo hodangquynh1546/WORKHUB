@@ -5,10 +5,13 @@ import { Alert } from '../../components/Form'
 import { METHODOLOGY_LABELS, PROJECT_STATUS_LABELS } from '../roles'
 import type { ProjectContext } from './projectContext'
 import { PageSkeleton } from '../../components/Skeleton'
+import { useLiveReload } from '../../realtime/useLiveReload'
 
 export function ProjectLayout() {
   const { projectId } = useParams()
   const { data: project, error, reload } = useResource<Project>(`/api/projects/${projectId}`)
+  // Subscribing here (once) lets every page below hear about changes to this project.
+  useLiveReload(projectId, ['project', 'members'], reload)
 
   if (error) {
     return (
@@ -50,6 +53,7 @@ export function ProjectLayout() {
         <NavLink to="meetings">Cuộc họp</NavLink>
         <NavLink to="calendar">Lịch</NavLink>
         <NavLink to="reports">Báo cáo</NavLink>
+        <NavLink to="chat">Trao đổi</NavLink>
         <NavLink to="members">Thành viên</NavLink>
         {canUpdate && <NavLink to="settings">Cài đặt</NavLink>}
       </nav>

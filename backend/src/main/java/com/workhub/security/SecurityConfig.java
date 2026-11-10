@@ -30,7 +30,7 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
 	private static final String[] PUBLIC_PATHS = {
-		"/api/auth/**", "/api/public/**", "/actuator/health", "/actuator/health/**", "/h2-console/**", "/error",
+		"/api/auth/**", "/api/public/**", "/ws", "/actuator/health", "/actuator/health/**", "/h2-console/**", "/error",
 	};
 
 	@Bean

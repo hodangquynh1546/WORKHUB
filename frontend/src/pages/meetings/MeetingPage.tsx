@@ -13,12 +13,14 @@ import { formatDay } from '../roles'
 import { useProject } from '../project/projectContext'
 import { MeetingForm } from './MeetingForm'
 import { MEETING_TYPE_LABELS, REMINDER_OPTIONS, RESPONSE_LABELS, formatRange } from './labels'
+import { useLiveReload } from '../../realtime/useLiveReload'
 
 export function MeetingPage() {
   const { meetingId } = useParams()
   const { project } = useProject()
   const navigate = useNavigate()
   const { data: meeting, error, reload } = useResource<MeetingDetail>(`/api/meetings/${meetingId}`)
+  useLiveReload(project.id, ['meetings'], reload)
   const [editing, setEditing] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
 

@@ -29,6 +29,12 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, UU
 			""")
 	List<ProjectMemberResponse> findMembers(@Param("projectId") UUID projectId);
 
+	@Query("select m.userId from ProjectMember m where m.projectId = :projectId")
+	List<UUID> findUserIds(@Param("projectId") UUID projectId);
+
+	@Query("select m.userId from ProjectMember m where m.projectId = :projectId and m.role in :roles")
+	List<UUID> findUserIdsByRole(@Param("projectId") UUID projectId, @Param("roles") java.util.Collection<ProjectRole> roles);
+
 	/** Drops the user from every project of the workspace (used when they leave or are removed from it). */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("delete from ProjectMember m where m.userId = :userId and m.projectId in (select p.id from Project p where p.workspaceId = :workspaceId)")

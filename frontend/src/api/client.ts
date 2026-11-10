@@ -20,6 +20,11 @@ let accessToken: string | null = null
 let sessionListener: (session: AuthResponse | null) => void = () => {}
 let refreshInFlight: Promise<AuthResponse | null> | null = null
 
+/** The current access token (null when signed out); the WebSocket sends it in its first frame. */
+export function currentAccessToken(): string | null {
+  return accessToken
+}
+
 export function onSessionChange(listener: (session: AuthResponse | null) => void) {
   sessionListener = listener
 }

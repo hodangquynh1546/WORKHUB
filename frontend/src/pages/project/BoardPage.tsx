@@ -10,6 +10,7 @@ import { ISSUE_TYPES, TYPE_LABELS } from '../issueLabels'
 import { formatDay, scheduleProgress } from '../roles'
 import { useProject } from './projectContext'
 import { PageSkeleton } from '../../components/Skeleton'
+import { useLiveReload } from '../../realtime/useLiveReload'
 
 export function BoardPage() {
   const { project } = useProject()
@@ -33,6 +34,7 @@ export function BoardPage() {
   }, [project.id, version])
 
   const reload = () => setVersion((v) => v + 1)
+  useLiveReload(project.id, ['issues', 'sprints', 'project'], reload)
   const canEdit = !!board?.permissions.includes('EDIT_ISSUES') && project.status !== 'ARCHIVED'
 
   const visible = useMemo(

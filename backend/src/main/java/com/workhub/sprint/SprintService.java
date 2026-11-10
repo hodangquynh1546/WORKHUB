@@ -43,6 +43,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class SprintService {
 
+	private final com.workhub.notification.NotificationService notifications;
+
 	private final AccessService access;
 
 	private final SprintRepository sprints;
@@ -67,7 +69,9 @@ public class SprintService {
 
 	public SprintService(AccessService access, SprintRepository sprints, SprintIssueRepository members,
 			IssueRepository issues, IssueMapper issueMapper, SprintMapper sprintMapper, SprintStats stats,
-			SprintSnapshotService snapshots, ProjectMemberRepository projectMembers, Clock clock, ZoneId zone) {
+			SprintSnapshotService snapshots, ProjectMemberRepository projectMembers, Clock clock, ZoneId zone,
+			com.workhub.notification.NotificationService notifications) {
+		this.notifications = notifications;
 		this.access = access;
 		this.sprints = sprints;
 		this.members = members;
@@ -220,6 +224,9 @@ public class SprintService {
 		}
 		sprint.start(clock.instant(), counts.issues(), counts.scopePoints());
 		snapshots.capture(sprint);
+		notifications.notifyAll(projectMembers.findUserIds(sprint.getProjectId()), com.workhub.notification.NotificationType.SPRINT_STARTED,
+				"Sprint \"" + sprint.getName() + "\" đã bắt đầu", sprint.getGoal(),
+				"/projects/" + sprint.getProjectId() + "/sprints/" + sprintId, sprint.getProjectId(), userId, null);
 		return get(userId, sprintId, null);
 	}
 
@@ -269,6 +276,9 @@ public class SprintService {
 			}
 		}
 		sprint.complete(now, doneIssues, donePoints, request.goalOutcome(), Strings.trimToNull(request.goalNote()));
+		notifications.notifyAll(projectMembers.findUserIds(sprint.getProjectId()), com.workhub.notification.NotificationType.SPRINT_COMPLETED,
+				"Sprint \"" + sprint.getName() + "\" đã kết thúc", doneIssues + " công việc hoàn thành, " + donePoints + " điểm",
+				"/projects/" + sprint.getProjectId() + "/sprints/" + sprintId, sprint.getProjectId(), userId, null);
 		return get(userId, sprintId, null);
 	}
 

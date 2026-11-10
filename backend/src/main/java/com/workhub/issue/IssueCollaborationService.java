@@ -1,8 +1,11 @@
 package com.workhub.issue;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -11,6 +14,9 @@ import com.workhub.common.ApiException;
 import com.workhub.issue.IssueLoader.Loaded;
 import com.workhub.issue.IssueResponses.ChecklistItemResponse;
 import com.workhub.issue.IssueResponses.CommentResponse;
+import com.workhub.notification.NotificationService;
+import com.workhub.notification.NotificationType;
+import com.workhub.project.ProjectMemberRepository;
 import com.workhub.user.User;
 import com.workhub.user.UserRepository;
 
@@ -24,6 +30,10 @@ public class IssueCollaborationService {
 
 	private static final int MAX_CHECKLIST_ITEMS = 50;
 
+	private final NotificationService notifications;
+
+	private final ProjectMemberRepository projectMembers;
+
 	private final IssueLoader loader;
 
 	private final IssueCommentRepository comments;
@@ -33,7 +43,10 @@ public class IssueCollaborationService {
 	private final UserRepository users;
 
 	public IssueCollaborationService(IssueLoader loader, IssueCommentRepository comments,
-			ChecklistItemRepository checklist, UserRepository users) {
+			ChecklistItemRepository checklist, UserRepository users, NotificationService notifications,
+			ProjectMemberRepository projectMembers) {
+		this.notifications = notifications;
+		this.projectMembers = projectMembers;
 		this.loader = loader;
 		this.comments = comments;
 		this.checklist = checklist;
@@ -52,9 +65,26 @@ public class IssueCollaborationService {
 		return list.stream().map((comment) -> toResponse(comment, authors.get(comment.getAuthorId()))).toList();
 	}
 
-	public CommentResponse addComment(UUID userId, UUID issueId, String body) {
-		loader.load(userId, issueId).access().require(ProjectPermission.COMMENT).requireActive();
+	public CommentResponse addComment(UUID userId, UUID issueId, String body, List<UUID> mentions) {
+		IssueLoader.Loaded loaded = loader.load(userId, issueId);
+		loaded.access().require(ProjectPermission.COMMENT).requireActive();
+		Issue issue = loaded.issue();
+		Set<UUID> mentioned = new LinkedHashSet<>((mentions == null) ? List.of() : mentions);
+		for (UUID id : mentioned) {
+			if (!projectMembers.existsByProjectIdAndUserId(issue.getProjectId(), id)) {
+				throw ApiException.badRequest("MENTION_NOT_MEMBER", "Only members of the project can be mentioned");
+			}
+		}
 		IssueComment comment = comments.saveAndFlush(new IssueComment(issueId, userId, body.strip()));
+		String key = IssueMapper.key(loaded.access().project(), issue);
+		String link = "/issues/" + issueId;
+		notifications.notifyAll(mentioned, NotificationType.MENTIONED, "Bạn được nhắc đến trong " + key, body.strip(), link,
+				issue.getProjectId(), userId, null);
+		Set<UUID> watchers = new LinkedHashSet<>(Arrays.asList(issue.getAssigneeId(), issue.getReporterId()));
+		watchers.remove(null);
+		watchers.removeAll(mentioned);
+		notifications.notifyAll(watchers, NotificationType.ISSUE_COMMENTED, "Bình luận mới ở " + key, body.strip(), link,
+				issue.getProjectId(), userId, null);
 		return toResponse(comment, users.findById(userId).orElseThrow());
 	}
 

@@ -8,6 +8,7 @@ import { ListSkeleton } from '../../components/Skeleton'
 import { useProject } from '../project/projectContext'
 import { MeetingForm } from './MeetingForm'
 import { MEETING_TYPES, MEETING_TYPE_LABELS, RESPONSE_LABELS, formatDayLong, formatTime } from './labels'
+import { useLiveReload } from '../../realtime/useLiveReload'
 
 export function MeetingsPage() {
   const { project } = useProject()
@@ -29,7 +30,8 @@ export function MeetingsPage() {
   }
   if (type) query.set('type', type)
   if (mine && user) query.set('personId', user.id)
-  const { data, error } = useResource<MeetingSummary[]>(`/api/projects/${project.id}/meetings?${query}`)
+  const { data, error, reload } = useResource<MeetingSummary[]>(`/api/projects/${project.id}/meetings?${query}`)
+  useLiveReload(project.id, ['meetings'], reload)
 
   // Group by calendar day (browser timezone), keeping the server's order.
   const groups = useMemo(() => {

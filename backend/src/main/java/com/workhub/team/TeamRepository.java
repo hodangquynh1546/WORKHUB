@@ -9,6 +9,10 @@ import org.springframework.data.repository.query.Param;
 
 public interface TeamRepository extends JpaRepository<Team, UUID> {
 
+	/** Teams the user is on, archived ones excluded. */
+	@Query("select t from Team t where t.archivedAt is null and t.id in (select m.teamId from TeamMember m where m.userId = :userId)")
+	List<Team> findOfMember(@Param("userId") UUID userId);
+
 	boolean existsByWorkspaceIdAndNameIgnoreCase(UUID workspaceId, String name);
 
 	boolean existsByWorkspaceIdAndNameIgnoreCaseAndIdNot(UUID workspaceId, String name, UUID id);

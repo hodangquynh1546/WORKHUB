@@ -52,7 +52,8 @@ public final class IssueRequests {
 	public record Block(boolean blocked, @Size(max = 500) String reason) {
 	}
 
-	public record CommentBody(@NotBlank @Size(max = 5000) String body) {
+	/** {@code mentions} are the project members the author tagged with @; they are notified. */
+	public record CommentBody(@NotBlank @Size(max = 5000) String body, @Size(max = 20) List<UUID> mentions) {
 	}
 
 	public record ChecklistAdd(@NotBlank @Size(max = 500) String text) {
