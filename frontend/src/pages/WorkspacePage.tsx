@@ -2,11 +2,12 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { api } from '../api/client'
 import { errorMessage } from '../api/errors'
-import type { Invitation, Team, Workspace, WorkspaceMember, WorkspaceRole } from '../api/types'
+import type { Invitation, Project, Team, Workspace, WorkspaceMember, WorkspaceRole } from '../api/types'
 import { useResource } from '../api/useResource'
 import { useAuth } from '../auth/AuthContext'
 import { Alert, Field } from '../components/Form'
 import { InviteForm, PendingInvitations } from '../components/Invitations'
+import { ProjectList } from '../components/ProjectList'
 import { ROLE_LABELS } from './roles'
 import { WorkspaceLogo } from './WorkspacesPage'
 
@@ -42,6 +43,7 @@ export function WorkspacePage() {
       <div className="two-column">
         <div className="stack-lg">
           <TeamsSection workspace={workspace} />
+          <ProjectsSection workspace={workspace} />
           <MembersSection workspace={workspace} />
         </div>
         <div className="stack-lg">
@@ -105,6 +107,20 @@ function TeamsSection({ workspace }: { workspace: Workspace }) {
         </form>
       )}
       <Alert>{createError}</Alert>
+    </section>
+  )
+}
+
+function ProjectsSection({ workspace }: { workspace: Workspace }) {
+  const { data: projects, error } = useResource<Project[]>(`/api/workspaces/${workspace.id}/projects`)
+  return (
+    <section className="card">
+      <h2>Dự án</h2>
+      <Alert>{error}</Alert>
+      {projects?.length === 0 && (
+        <p className="muted">Bạn chưa thấy dự án nào. Dự án được tạo trong từng team; bạn xem được dự án của team mình tham gia.</p>
+      )}
+      {projects && <ProjectList projects={projects} showTeam />}
     </section>
   )
 }

@@ -11,6 +11,12 @@ const MESSAGES: Record<string, string> = {
   WORKSPACE_NOT_FOUND: 'Không tìm thấy workspace hoặc bạn không phải thành viên.',
   FORBIDDEN: 'Bạn không có quyền thực hiện thao tác này.',
   CONFLICT: 'Dữ liệu bị trùng, vui lòng thử lại.',
+  PROJECT_NOT_FOUND: 'Không tìm thấy dự án hoặc bạn không có quyền xem.',
+  PROJECT_KEY_TAKEN: 'Mã dự án đã được dùng trong workspace này.',
+  PROJECT_ARCHIVED: 'Dự án đã được lưu trữ nên không thể thay đổi. Hãy đổi trạng thái để mở lại.',
+  ROLE_TAKEN: 'Vai trò Product Owner và Scrum Master chỉ có một người giữ.',
+  LAST_PROJECT_MANAGER: 'Dự án phải còn ít nhất một Project Manager.',
+  INVALID_DATES: 'Ngày kết thúc không được trước ngày bắt đầu.',
   TEAM_NOT_FOUND: 'Không tìm thấy team.',
   TEAM_NAME_TAKEN: 'Workspace đã có team trùng tên.',
   TEAM_ARCHIVED: 'Team đã được lưu trữ nên không thể thay đổi.',
@@ -34,6 +40,9 @@ const FIELD_LABELS: Record<string, string> = {
   name: 'Tên',
   description: 'Mô tả',
   logoUrl: 'Logo URL',
+  key: 'Mã dự án',
+  startDate: 'Ngày bắt đầu',
+  endDate: 'Ngày kết thúc',
   avatarUrl: 'Ảnh đại diện URL',
 }
 

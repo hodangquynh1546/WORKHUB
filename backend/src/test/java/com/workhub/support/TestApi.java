@@ -73,6 +73,41 @@ public final class TestApi {
 			.andReturn());
 	}
 
+	/** Adds an existing workspace member to a team. */
+	public static void addToTeam(MockMvc mockMvc, Session lead, UUID teamId, Session member, String role)
+			throws Exception {
+		mockMvc
+			.perform(post("/api/teams/" + teamId + "/members").header("Authorization", lead.bearer())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(json("userId", member.userId().toString(), "role", role)))
+			.andExpect(status().isNoContent());
+	}
+
+	/** Creates a Scrum project in the team; the caller becomes its project manager. */
+	public static UUID createProject(MockMvc mockMvc, Session creator, UUID teamId, String key) throws Exception {
+		return idOf(mockMvc
+			.perform(post("/api/teams/" + teamId + "/projects").header("Authorization", creator.bearer())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(json("key", key, "name", "Project " + key, "methodology", "SCRUM")))
+			.andExpect(status().isCreated())
+			.andReturn());
+	}
+
+	/** Adds an existing workspace member to a project. */
+	public static void addToProject(MockMvc mockMvc, Session manager, UUID projectId, Session member, String role)
+			throws Exception {
+		mockMvc
+			.perform(post("/api/projects/" + projectId + "/members").header("Authorization", manager.bearer())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(json("userId", member.userId().toString(), "role", role)))
+			.andExpect(status().isNoContent());
+	}
+
+	/** A short unique project key such as {@code PKA1B2C3}. */
+	public static String uniqueKey() {
+		return "P" + UUID.randomUUID().toString().replace("-", "").substring(0, 7).toUpperCase();
+	}
+
 	/** Registers a new user and brings them into the workspace with {@code role} through a link invitation. */
 	public static Session joinWorkspace(MockMvc mockMvc, Session inviter, UUID workspaceId, String role)
 			throws Exception {

@@ -38,7 +38,7 @@ export type WorkspaceMember = {
 }
 
 export type TeamRole = 'LEAD' | 'MEMBER'
-export type TeamPermission = 'VIEW' | 'UPDATE_TEAM' | 'MANAGE_MEMBERS'
+export type TeamPermission = 'VIEW' | 'UPDATE_TEAM' | 'MANAGE_MEMBERS' | 'MANAGE_PROJECTS'
 
 export type Team = {
   id: string
@@ -83,3 +83,46 @@ export type Invitation = {
 
 export type InvitationCreated = { invitation: Invitation; inviteUrl: string }
 export type InvitationAccepted = { workspaceId: string; teamId: string | null }
+
+export type Methodology = 'SCRUM' | 'KANBAN'
+export type ProjectStatus = 'PLANNING' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED'
+export type ProjectRole = 'PROJECT_MANAGER' | 'PRODUCT_OWNER' | 'SCRUM_MASTER' | 'DEVELOPER' | 'QA_ENGINEER' | 'STAKEHOLDER'
+export type ProjectPermission =
+  | 'VIEW'
+  | 'UPDATE_PROJECT'
+  | 'MANAGE_MEMBERS'
+  | 'MANAGE_BACKLOG'
+  | 'MANAGE_SPRINTS'
+  | 'EDIT_ISSUES'
+  | 'COMMENT'
+
+export type Project = {
+  id: string
+  workspaceId: string
+  teamId: string
+  teamName: string
+  /** Short code such as ECOM; fixed after creation. */
+  key: string
+  name: string
+  description: string | null
+  avatarUrl: string | null
+  /** ISO dates (yyyy-mm-dd) or null. */
+  startDate: string | null
+  endDate: string | null
+  methodology: Methodology
+  status: ProjectStatus
+  createdAt: string
+  memberCount: number
+  /** Null when the signed-in user is not a project member (e.g. sees it through the team). */
+  myRole: ProjectRole | null
+  permissions: ProjectPermission[]
+}
+
+export type ProjectMember = {
+  userId: string
+  email: string
+  fullName: string
+  avatarUrl: string | null
+  role: ProjectRole
+  joinedAt: string
+}

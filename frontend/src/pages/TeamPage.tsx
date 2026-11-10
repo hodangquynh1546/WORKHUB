@@ -2,11 +2,13 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { api } from '../api/client'
 import { errorMessage } from '../api/errors'
-import type { Invitation, Team, TeamMember, TeamRole, WorkspaceMember } from '../api/types'
+import type { Invitation, Project, Team, TeamMember, TeamRole, WorkspaceMember } from '../api/types'
 import { useResource } from '../api/useResource'
 import { useAuth } from '../auth/AuthContext'
+import { CreateProjectForm } from '../components/CreateProjectForm'
 import { Alert, Field } from '../components/Form'
 import { InviteForm, PendingInvitations } from '../components/Invitations'
+import { ProjectList } from '../components/ProjectList'
 import { TEAM_ROLE_LABELS } from './roles'
 
 const TEAM_ROLE_OPTIONS = [
@@ -46,13 +48,39 @@ export function TeamPage() {
       </header>
       {team.archived && <Alert kind="info">Team đã được lưu trữ: chỉ xem, không thể thay đổi thành viên.</Alert>}
       <div className="two-column">
-        <TeamMembers team={team} canManage={canManageMembers} onChanged={reload} />
+        <div className="stack-lg">
+          <TeamProjects team={team} />
+          <TeamMembers team={team} canManage={canManageMembers} onChanged={reload} />
+        </div>
         <div className="stack-lg">
           {canManageMembers && <TeamInvitations team={team} />}
           {team.permissions.includes('UPDATE_TEAM') && <TeamSettings team={team} onSaved={reload} />}
         </div>
       </div>
     </>
+  )
+}
+
+function TeamProjects({ team }: { team: Team }) {
+  const { data: projects, error } = useResource<Project[]>(`/api/teams/${team.id}/projects`)
+  const [creating, setCreating] = useState(false)
+  const canCreate = team.permissions.includes('MANAGE_PROJECTS') && !team.archived
+
+  return (
+    <section className="card">
+      <div className="section-header">
+        <h2>Dự án</h2>
+        {canCreate && (
+          <button type="button" className="button-secondary button-small" onClick={() => setCreating((v) => !v)}>
+            {creating ? 'Đóng' : 'Tạo dự án'}
+          </button>
+        )}
+      </div>
+      <Alert>{error}</Alert>
+      {creating && <CreateProjectForm teamId={team.id} />}
+      {projects?.length === 0 && !creating && <p className="muted">Team chưa có dự án nào.</p>}
+      {projects && <ProjectList projects={projects} />}
+    </section>
   )
 }
 

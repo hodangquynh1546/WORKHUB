@@ -8,6 +8,10 @@ import { LoginPage } from './pages/LoginPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+import { MembersPage } from './pages/project/MembersPage'
+import { OverviewPage } from './pages/project/OverviewPage'
+import { ProjectLayout } from './pages/project/ProjectLayout'
+import { SettingsPage } from './pages/project/SettingsPage'
 import { TeamPage } from './pages/TeamPage'
 import { VerifyEmailPage } from './pages/VerifyEmailPage'
 import { WorkspacePage } from './pages/WorkspacePage'
@@ -32,6 +36,11 @@ export default function App() {
               <Route path="/workspaces" element={<WorkspacesPage />} />
               <Route path="/workspaces/:workspaceId" element={<WorkspacePage />} />
               <Route path="/teams/:teamId" element={<TeamPage />} />
+              <Route path="/projects/:projectId" element={<ProjectLayout />}>
+                <Route index element={<OverviewPage />} />
+                <Route path="members" element={<MembersPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+              </Route>
               <Route path="/profile" element={<ProfilePage />} />
             </Route>
           </Route>

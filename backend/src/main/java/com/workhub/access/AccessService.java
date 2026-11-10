@@ -3,6 +3,10 @@ package com.workhub.access;
 import java.util.UUID;
 
 import com.workhub.common.ApiException;
+import com.workhub.project.Project;
+import com.workhub.project.ProjectMember;
+import com.workhub.project.ProjectMemberRepository;
+import com.workhub.project.ProjectRepository;
 import com.workhub.team.Team;
 import com.workhub.team.TeamMember;
 import com.workhub.team.TeamMemberRepository;
@@ -27,11 +31,17 @@ public class AccessService {
 
 	private final TeamMemberRepository teamMembers;
 
+	private final ProjectRepository projects;
+
+	private final ProjectMemberRepository projectMembers;
+
 	public AccessService(WorkspaceMemberRepository workspaceMembers, TeamRepository teams,
-			TeamMemberRepository teamMembers) {
+			TeamMemberRepository teamMembers, ProjectRepository projects, ProjectMemberRepository projectMembers) {
 		this.workspaceMembers = workspaceMembers;
 		this.teams = teams;
 		this.teamMembers = teamMembers;
+		this.projects = projects;
+		this.projectMembers = projectMembers;
 	}
 
 	/** @throws ApiException 404 WORKSPACE_NOT_FOUND when the caller is not a member */
@@ -49,6 +59,22 @@ public class AccessService {
 			.orElseThrow(() -> notFound);
 		return new TeamAccess(team, userId, workspaceMember.getRole(),
 				teamMembers.findByTeamIdAndUserId(teamId, userId).map(TeamMember::getRole).orElse(null));
+	}
+
+	/** @throws ApiException 404 PROJECT_NOT_FOUND when the project does not exist or the caller may not see it */
+	public ProjectAccess project(UUID userId, UUID projectId) {
+		ApiException notFound = ApiException.notFound("PROJECT_NOT_FOUND", "Project not found");
+		Project project = projects.findById(projectId).orElseThrow(() -> notFound);
+		WorkspaceMember workspaceMember = workspaceMembers
+			.findByWorkspaceIdAndUserId(project.getWorkspaceId(), userId)
+			.orElseThrow(() -> notFound);
+		ProjectAccess access = new ProjectAccess(project, userId, workspaceMember.getRole(),
+				teamMembers.findByTeamIdAndUserId(project.getTeamId(), userId).map(TeamMember::getRole).orElse(null),
+				projectMembers.findByProjectIdAndUserId(projectId, userId).map(ProjectMember::getRole).orElse(null));
+		if (access.permissions().isEmpty()) {
+			throw notFound;
+		}
+		return access;
 	}
 
 }

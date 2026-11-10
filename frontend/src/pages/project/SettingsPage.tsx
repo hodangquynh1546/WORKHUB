@@ -1,0 +1,114 @@
+import { useState, type FormEvent } from 'react'
+import { Navigate } from 'react-router'
+import { api } from '../../api/client'
+import { errorMessage } from '../../api/errors'
+import type { Methodology, Project, ProjectStatus } from '../../api/types'
+import { Alert, Field } from '../../components/Form'
+import { METHODOLOGY_LABELS, PROJECT_STATUS_LABELS, PROJECT_STATUSES } from '../roles'
+import { useProject } from './projectContext'
+
+type Message = { ok: boolean; text: string } | null
+
+export function SettingsPage() {
+  const { project } = useProject()
+  // Opened by URL without the permission: the backend would refuse anyway.
+  if (!project.permissions.includes('UPDATE_PROJECT')) return <Navigate to=".." replace />
+  return (
+    <div className="two-column">
+      <DetailsForm />
+      <StatusForm />
+    </div>
+  )
+}
+
+function DetailsForm() {
+  const { project, reload } = useProject()
+  const [name, setName] = useState(project.name)
+  const [description, setDescription] = useState(project.description ?? '')
+  const [avatarUrl, setAvatarUrl] = useState(project.avatarUrl ?? '')
+  const [startDate, setStartDate] = useState(project.startDate ?? '')
+  const [endDate, setEndDate] = useState(project.endDate ?? '')
+  const [methodology, setMethodology] = useState<Methodology>(project.methodology)
+  const [message, setMessage] = useState<Message>(null)
+  const archived = project.status === 'ARCHIVED'
+
+  async function save(event: FormEvent) {
+    event.preventDefault()
+    setMessage(null)
+    try {
+      await api<Project>(`/api/projects/${project.id}`, {
+        method: 'PUT',
+        body: { name, description, avatarUrl: avatarUrl.trim() || null, startDate: startDate || null, endDate: endDate || null, methodology },
+      })
+      reload()
+      setMessage({ ok: true, text: 'Đã lưu thay đổi.' })
+    } catch (err) {
+      setMessage({ ok: false, text: errorMessage(err) })
+    }
+  }
+
+  return (
+    <section className="card">
+      <h2>Thông tin dự án</h2>
+      <form onSubmit={save} className="stack">
+        <Field label="Mã dự án (không đổi được)" value={project.key} disabled />
+        <Field label="Tên dự án" required maxLength={100} disabled={archived} value={name} onChange={(e) => setName(e.target.value)} />
+        <Field label="Mô tả" maxLength={2000} disabled={archived} value={description} onChange={(e) => setDescription(e.target.value)} />
+        <Field label="Ảnh đại diện URL (http/https)" type="url" maxLength={1024} placeholder="https://…" disabled={archived} value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} />
+        <div className="inline-form">
+          <Field label="Bắt đầu" type="date" disabled={archived} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          <Field label="Kết thúc dự kiến" type="date" min={startDate || undefined} disabled={archived} value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+        </div>
+        <label className="field">
+          <span>Phương pháp</span>
+          <select value={methodology} disabled={archived} onChange={(e) => setMethodology(e.target.value as Methodology)}>
+            {Object.entries(METHODOLOGY_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {message && <Alert kind={message.ok ? 'success' : 'error'}>{message.text}</Alert>}
+        <button type="submit" disabled={archived}>
+          Lưu
+        </button>
+      </form>
+    </section>
+  )
+}
+
+function StatusForm() {
+  const { project, reload } = useProject()
+  const [message, setMessage] = useState<Message>(null)
+
+  async function change(status: ProjectStatus) {
+    if (status === project.status) return
+    if (status === 'ARCHIVED' && !window.confirm('Lưu trữ dự án? Dự án sẽ chuyển sang chế độ chỉ xem cho đến khi đổi trạng thái.')) return
+    setMessage(null)
+    try {
+      await api<Project>(`/api/projects/${project.id}/status`, { method: 'PUT', body: { status } })
+      reload()
+      setMessage({ ok: true, text: `Đã chuyển sang "${PROJECT_STATUS_LABELS[status]}".` })
+    } catch (err) {
+      setMessage({ ok: false, text: errorMessage(err) })
+    }
+  }
+
+  return (
+    <section className="card stack">
+      <h2>Trạng thái</h2>
+      <label className="field">
+        <span>Trạng thái dự án</span>
+        <select value={project.status} onChange={(e) => change(e.target.value as ProjectStatus)}>
+          {PROJECT_STATUSES.map((status) => (
+            <option key={status} value={status}>
+              {PROJECT_STATUS_LABELS[status]}
+            </option>
+          ))}
+        </select>
+      </label>
+      {message && <Alert kind={message.ok ? 'success' : 'error'}>{message.text}</Alert>}
+    </section>
+  )
+}

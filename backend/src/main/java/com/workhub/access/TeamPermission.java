@@ -8,6 +8,8 @@ public enum TeamPermission {
 	/** Edit, archive and unarchive the team. */
 	UPDATE_TEAM,
 	/** Add, remove, change roles of and invite team members. */
-	MANAGE_MEMBERS
+	MANAGE_MEMBERS,
+	/** Create projects in the team and act as project manager of all of them. */
+	MANAGE_PROJECTS
 
 }

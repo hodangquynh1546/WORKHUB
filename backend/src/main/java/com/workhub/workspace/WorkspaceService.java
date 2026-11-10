@@ -8,6 +8,7 @@ import com.workhub.access.WorkspaceAccess;
 import com.workhub.access.WorkspacePermission;
 import com.workhub.common.ApiException;
 import com.workhub.common.Strings;
+import com.workhub.project.ProjectMemberRepository;
 import com.workhub.team.TeamMemberRepository;
 
 import org.springframework.stereotype.Service;
@@ -26,12 +27,15 @@ public class WorkspaceService {
 
 	private final TeamMemberRepository teamMembers;
 
+	private final ProjectMemberRepository projectMembers;
+
 	public WorkspaceService(AccessService access, WorkspaceRepository workspaces, WorkspaceMemberRepository members,
-			TeamMemberRepository teamMembers) {
+			TeamMemberRepository teamMembers, ProjectMemberRepository projectMembers) {
 		this.access = access;
 		this.workspaces = workspaces;
 		this.members = members;
 		this.teamMembers = teamMembers;
+		this.projectMembers = projectMembers;
 	}
 
 	/** The creator becomes the workspace owner. */
@@ -81,7 +85,8 @@ public class WorkspaceService {
 	}
 
 	/**
-	 * Removes a member (or lets the caller leave) and drops them from every team of the workspace.
+	 * Removes a member (or lets the caller leave) and drops them from every team and project of the workspace.
+	 * This may leave a project without a project manager; its team lead and workspace admins still manage it.
 	 * Admins can remove members; only the owner can remove admins; nobody can remove the owner.
 	 */
 	public void removeMember(UUID userId, UUID workspaceId, UUID memberId) {
@@ -98,6 +103,7 @@ public class WorkspaceService {
 		}
 		members.delete(member);
 		teamMembers.deleteAllInWorkspace(workspaceId, memberId);
+		projectMembers.deleteAllInWorkspace(workspaceId, memberId);
 	}
 
 	private WorkspaceMember requireMember(UUID workspaceId, UUID memberId) {
