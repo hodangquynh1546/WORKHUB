@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import jakarta.validation.Valid;
 
+import com.workhub.common.DeleteConfirmation;
 import com.workhub.security.CurrentUser;
 
 import org.springframework.http.HttpStatus;
@@ -51,6 +52,13 @@ public class TeamController {
 	public TeamResponse update(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID teamId,
 			@Valid @RequestBody TeamRequests.Save request) {
 		return teamService.update(CurrentUser.id(jwt), teamId, request);
+	}
+
+	@DeleteMapping("/api/teams/{teamId}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID teamId,
+			@Valid @RequestBody DeleteConfirmation confirmation) {
+		teamService.delete(CurrentUser.id(jwt), teamId, confirmation);
 	}
 
 	@PostMapping("/api/teams/{teamId}/archive")

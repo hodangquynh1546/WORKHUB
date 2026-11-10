@@ -21,6 +21,7 @@ import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 
 /**
  * Stateless API security: every request outside the public list needs a valid access token
@@ -39,7 +40,8 @@ public class SecurityConfig {
 			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.authorizeHttpRequests(auth -> auth.requestMatchers(PUBLIC_PATHS).permitAll().anyRequest().authenticated())
 			// The H2 console renders in frames.
-			.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
+			.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin())
+				.referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER)))
 			.oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
 		return http.build();
 	}

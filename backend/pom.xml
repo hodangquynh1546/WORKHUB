@@ -48,6 +48,10 @@
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
 		<dependency>
@@ -133,6 +137,10 @@
 					<!-- The background jobs are called directly in tests; they must not fire on their own. -->
 					<systemPropertyVariables>
 						<workhub.scheduling.enabled>false</workhub.scheduling.enabled>
+						<!-- Tests sign up hundreds of users from one address; RateLimitTests sets its own small limit. -->
+						<workhub.rate-limit.auth-requests>1000000</workhub.rate-limit.auth-requests>
+						<!-- Tests never use the real secret from .env. -->
+						<workhub.jwt.secret>test-only-secret-not-for-use-0123456789abcdef</workhub.jwt.secret>
 					</systemPropertyVariables>
 				</configuration>
 			</plugin>

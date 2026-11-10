@@ -10,6 +10,7 @@ import com.workhub.access.TeamPermission;
 import com.workhub.access.WorkspaceAccess;
 import com.workhub.access.WorkspacePermission;
 import com.workhub.common.ApiException;
+import com.workhub.common.DeleteConfirmation;
 import com.workhub.common.Strings;
 import com.workhub.workspace.WorkspaceMemberRepository;
 
@@ -79,6 +80,13 @@ public class TeamService {
 		}
 		team.team().update(name, Strings.trimToNull(request.description()));
 		return response(team.team(), members.countByTeamId(teamId), team);
+	}
+
+	/** Deletes the team and, through ON DELETE CASCADE, its projects with everything in them. Name must be typed. */
+	public void delete(UUID userId, UUID teamId, DeleteConfirmation confirmation) {
+		TeamAccess team = access.team(userId, teamId).require(TeamPermission.DELETE_TEAM);
+		confirmation.require(team.team().getName());
+		teams.delete(team.team());
 	}
 
 	/** Archived teams stay visible but become read-only until unarchived. */

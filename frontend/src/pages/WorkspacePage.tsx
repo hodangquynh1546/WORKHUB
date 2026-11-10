@@ -6,6 +6,7 @@ import type { Invitation, Project, Team, Workspace, WorkspaceMember, WorkspaceRo
 import { useResource } from '../api/useResource'
 import { useAuth } from '../auth/AuthContext'
 import { Alert, Field } from '../components/Form'
+import { DeleteZone } from '../components/DeleteZone'
 import { InviteForm, PendingInvitations } from '../components/Invitations'
 import { ProjectList } from '../components/ProjectList'
 import { ROLE_LABELS } from './roles'
@@ -15,6 +16,7 @@ import { ExportMenu } from '../components/ExportMenu'
 
 export function WorkspacePage() {
   const { workspaceId } = useParams()
+  const navigate = useNavigate()
   const { data: workspace, error, reload } = useResource<Workspace>(`/api/workspaces/${workspaceId}`)
 
   if (error) {
@@ -60,6 +62,15 @@ export function WorkspacePage() {
           {can('MANAGE_MEMBERS') && <InvitationsSection workspace={workspace} />}
           {can('UPDATE_SETTINGS') && <WorkspaceSettings workspace={workspace} onSaved={reload} />}
           {workspace.myRole !== 'OWNER' && <LeaveWorkspace workspace={workspace} />}
+          {can('DELETE_WORKSPACE') && (
+            <DeleteZone
+              title="Xóa workspace"
+              name={workspace.name}
+              warning="Xóa vĩnh viễn workspace cùng toàn bộ team, dự án, công việc, tài liệu, cuộc họp và trao đổi bên trong. Không thể khôi phục."
+              path={`/api/workspaces/${workspace.id}`}
+              onDeleted={() => navigate('/workspaces')}
+            />
+          )}
         </div>
       </div>
     </>

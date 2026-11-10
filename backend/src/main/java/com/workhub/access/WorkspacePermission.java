@@ -14,6 +14,8 @@ public enum WorkspacePermission {
 	/** Read the workspace's audit log and export it. */
 	VIEW_AUDIT,
 	/** Create teams and act as lead of every team. */
-	MANAGE_TEAMS
+	MANAGE_TEAMS,
+	/** Delete the whole workspace with everything in it (owner only). */
+	DELETE_WORKSPACE
 
 }

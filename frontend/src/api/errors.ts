@@ -2,6 +2,7 @@ import { ApiError } from './client'
 
 const MESSAGES: Record<string, string> = {
   EMAIL_TAKEN: 'Email này đã được đăng ký.',
+  RATE_LIMITED: 'Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.',
   INVALID_CREDENTIALS: 'Email hoặc mật khẩu không đúng.',
   INVALID_TOKEN: 'Liên kết không hợp lệ hoặc đã hết hạn.',
   INVALID_REFRESH_TOKEN: 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.',

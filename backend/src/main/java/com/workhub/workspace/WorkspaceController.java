@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import jakarta.validation.Valid;
 
+import com.workhub.common.DeleteConfirmation;
 import com.workhub.security.CurrentUser;
 
 import org.springframework.http.HttpStatus;
@@ -50,6 +51,13 @@ public class WorkspaceController {
 	public WorkspaceResponse update(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID workspaceId,
 			@Valid @RequestBody WorkspaceRequest request) {
 		return workspaceService.update(CurrentUser.id(jwt), workspaceId, request);
+	}
+
+	@DeleteMapping("/{workspaceId}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void delete(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID workspaceId,
+			@Valid @RequestBody DeleteConfirmation confirmation) {
+		workspaceService.delete(CurrentUser.id(jwt), workspaceId, confirmation);
 	}
 
 	@GetMapping("/{workspaceId}/members")

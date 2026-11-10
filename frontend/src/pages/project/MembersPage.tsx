@@ -131,7 +131,7 @@ function AddMember({ projectId, workspaceId, existing, onAdded }: { projectId: s
   }
 
   if (candidates.length === 0) {
-    return <p className="muted small add-hint">Mọi thành viên workspace đã ở trong dự án. Người ngoài workspace: hãy mời vào team hoặc workspace trước.</p>
+    return <p className="muted small add-hint">Mọi thành viên workspace đã ở trong dự án. Người chưa ở trong workspace: dùng mục "Mời người mới vào dự án" bên dưới.</p>
   }
   return (
     <form onSubmit={add} className="inline-form">

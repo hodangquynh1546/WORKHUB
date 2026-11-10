@@ -15,7 +15,7 @@ export type AuthResponse = {
 }
 
 export type WorkspaceRole = 'OWNER' | 'ADMIN' | 'MEMBER'
-export type WorkspacePermission = 'VIEW' | 'UPDATE_SETTINGS' | 'MANAGE_MEMBERS' | 'MANAGE_ADMINS' | 'VIEW_AUDIT' | 'MANAGE_TEAMS'
+export type WorkspacePermission = 'VIEW' | 'UPDATE_SETTINGS' | 'MANAGE_MEMBERS' | 'MANAGE_ADMINS' | 'VIEW_AUDIT' | 'MANAGE_TEAMS' | 'DELETE_WORKSPACE'
 
 export type Workspace = {
   id: string
@@ -38,7 +38,7 @@ export type WorkspaceMember = {
 }
 
 export type TeamRole = 'LEAD' | 'MEMBER'
-export type TeamPermission = 'VIEW' | 'UPDATE_TEAM' | 'MANAGE_MEMBERS' | 'MANAGE_PROJECTS'
+export type TeamPermission = 'VIEW' | 'UPDATE_TEAM' | 'MANAGE_MEMBERS' | 'MANAGE_PROJECTS' | 'DELETE_TEAM'
 
 export type Team = {
   id: string

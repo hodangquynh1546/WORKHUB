@@ -36,7 +36,7 @@ class WorkspaceMemberTests {
 		Session member = TestApi.joinWorkspace(mockMvc, owner, ws, "MEMBER");
 
 		mockMvc.perform(get("/api/workspaces/" + ws).header("Authorization", owner.bearer()))
-			.andExpect(jsonPath("$.permissions.length()").value(6));
+			.andExpect(jsonPath("$.permissions.length()").value(7));
 		mockMvc.perform(get("/api/workspaces/" + ws).header("Authorization", admin.bearer()))
 			.andExpect(jsonPath("$.myRole").value("ADMIN"))
 			.andExpect(jsonPath("$.permissions[?(@ == 'MANAGE_ADMINS')]").isEmpty())

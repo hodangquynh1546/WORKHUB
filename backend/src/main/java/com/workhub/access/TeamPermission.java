@@ -10,6 +10,8 @@ public enum TeamPermission {
 	/** Add, remove, change roles of and invite team members. */
 	MANAGE_MEMBERS,
 	/** Create projects in the team and act as project manager of all of them. */
-	MANAGE_PROJECTS
+	MANAGE_PROJECTS,
+	/** Delete the team together with its projects. */
+	DELETE_TEAM
 
 }

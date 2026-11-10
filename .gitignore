@@ -6,3 +6,4 @@
 
 # Claude Code local config and skills (not shared through the repo)
 .claude/
+backups/

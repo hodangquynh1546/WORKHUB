@@ -7,6 +7,7 @@ import com.workhub.access.AccessService;
 import com.workhub.access.WorkspaceAccess;
 import com.workhub.access.WorkspacePermission;
 import com.workhub.common.ApiException;
+import com.workhub.common.DeleteConfirmation;
 import com.workhub.common.Strings;
 import com.workhub.issue.IssueRepository;
 import com.workhub.project.ProjectMemberRepository;
@@ -67,6 +68,17 @@ public class WorkspaceService {
 		workspace.update(request.name().strip(), Strings.trimToNull(request.description()),
 				Strings.trimToNull(request.logoUrl()));
 		return WorkspaceResponse.of(workspace, caller.role());
+	}
+
+	/**
+	 * Deletes the workspace for good: teams, projects, issues, documents, chats and invitations go with it through the
+	 * database's ON DELETE CASCADE. Only the owner may, and must type the workspace's name.
+	 */
+	public void delete(UUID userId, UUID workspaceId, DeleteConfirmation confirmation) {
+		access.workspace(userId, workspaceId).require(WorkspacePermission.DELETE_WORKSPACE);
+		Workspace workspace = load(workspaceId);
+		confirmation.require(workspace.getName());
+		workspaces.delete(workspace);
 	}
 
 	@Transactional(readOnly = true)

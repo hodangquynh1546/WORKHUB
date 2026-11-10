@@ -7,6 +7,7 @@ import { useResource } from '../api/useResource'
 import { useAuth } from '../auth/AuthContext'
 import { CreateProjectForm } from '../components/CreateProjectForm'
 import { Alert, Field } from '../components/Form'
+import { DeleteZone } from '../components/DeleteZone'
 import { InviteForm, PendingInvitations } from '../components/Invitations'
 import { ProjectList } from '../components/ProjectList'
 import { TEAM_ROLE_LABELS } from './roles'
@@ -20,6 +21,7 @@ const TEAM_ROLE_OPTIONS = [
 
 export function TeamPage() {
   const { teamId } = useParams()
+  const navigate = useNavigate()
   const { data: team, error, reload } = useResource<Team>(`/api/teams/${teamId}`)
 
   if (error) {
@@ -60,6 +62,15 @@ export function TeamPage() {
         <div className="stack-lg">
           {canManageMembers && <TeamInvitations team={team} />}
           {team.permissions.includes('UPDATE_TEAM') && <TeamSettings team={team} onSaved={reload} />}
+          {team.permissions.includes('DELETE_TEAM') && (
+            <DeleteZone
+              title="Xóa team"
+              name={team.name}
+              warning="Xóa vĩnh viễn team cùng toàn bộ dự án của team (công việc, sprint, tài liệu, cuộc họp, trao đổi). Không thể khôi phục. Có thể dùng Lưu trữ nếu chỉ muốn ngừng làm việc."
+              path={`/api/teams/${team.id}`}
+              onDeleted={() => navigate(`/workspaces/${team.workspaceId}`)}
+            />
+          )}
         </div>
       </div>
     </>
