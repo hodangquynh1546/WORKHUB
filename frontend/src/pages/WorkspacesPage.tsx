@@ -7,6 +7,7 @@ import { useResource } from '../api/useResource'
 import { Alert, Field } from '../components/Form'
 import { MyInvitations } from '../components/MyInvitations'
 import { ROLE_LABELS } from './roles'
+import { ListSkeleton } from '../components/Skeleton'
 
 export function WorkspacesPage() {
   const navigate = useNavigate()
@@ -36,7 +37,7 @@ export function WorkspacesPage() {
         <section>
           <h1>Workspaces của bạn</h1>
           <Alert>{loadError}</Alert>
-          {workspaces === null && !loadError && <p className="muted">Đang tải…</p>}
+          {workspaces === null && !loadError && <ListSkeleton />}
           {workspaces?.length === 0 && <p className="muted">Bạn chưa tham gia workspace nào. Hãy tạo workspace đầu tiên.</p>}
           <ul className="card-list">
             {workspaces?.map((ws) => (

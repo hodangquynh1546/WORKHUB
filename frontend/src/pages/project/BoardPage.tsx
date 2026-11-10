@@ -9,6 +9,7 @@ import { Assignee, PriorityBadge, TypeBadge } from '../../components/IssueBits'
 import { ISSUE_TYPES, TYPE_LABELS } from '../issueLabels'
 import { formatDay, scheduleProgress } from '../roles'
 import { useProject } from './projectContext'
+import { PageSkeleton } from '../../components/Skeleton'
 
 export function BoardPage() {
   const { project } = useProject()
@@ -19,6 +20,7 @@ export function BoardPage() {
   const [onlyMine, setOnlyMine] = useState(false)
   const [type, setType] = useState<IssueType | ''>('')
   const [dragOver, setDragOver] = useState<IssueStatus | null>(null)
+  const [dragId, setDragId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -68,7 +70,7 @@ export function BoardPage() {
   }
 
   if (error && !board) return <Alert>{error}</Alert>
-  if (!board) return <p className="muted">Đang tải…</p>
+  if (!board) return <PageSkeleton />
 
   const scrum = board.methodology === 'SCRUM'
   if (scrum && !board.sprint) {
@@ -142,11 +144,16 @@ export function BoardPage() {
               {cards.map((issue) => (
                 <article
                   key={issue.id}
-                  className={`board-card ${issue.blocked ? 'board-card-blocked' : ''}`}
+                  className={`board-card ${issue.blocked ? 'board-card-blocked' : ''} ${dragId === issue.id ? 'board-card-dragging' : ''}`}
                   draggable={canEdit}
                   onDragStart={(e) => {
                     e.dataTransfer.setData('text/plain', issue.id)
                     e.dataTransfer.effectAllowed = 'move'
+                    setDragId(issue.id)
+                  }}
+                  onDragEnd={() => {
+                    setDragId(null)
+                    setDragOver(null)
                   }}
                 >
                   <div className="issue-title">

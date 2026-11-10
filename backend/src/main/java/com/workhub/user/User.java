@@ -59,8 +59,11 @@ public class User {
 		return email.strip().toLowerCase(Locale.ROOT);
 	}
 
-	public void updateProfile(String fullName, String avatarUrl) {
+	public void rename(String fullName) {
 		this.fullName = fullName;
+	}
+
+	public void changeAvatarUrl(String avatarUrl) {
 		this.avatarUrl = avatarUrl;
 	}
 

@@ -22,6 +22,7 @@ import { useAuth } from '../auth/AuthContext'
 import { Alert, Field, TextArea } from '../components/Form'
 import { PriorityBadge, TypeBadge } from '../components/IssueBits'
 import { formatDay } from './roles'
+import { RelatedDocuments } from './documents/RelatedDocuments'
 import {
   ALLOWED_PARENTS,
   FIELD_LABELS,
@@ -36,6 +37,7 @@ import {
   REFINEMENTS,
   TYPE_LABELS,
 } from './issueLabels'
+import { PageSkeleton } from '../components/Skeleton'
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('vi-VN')
@@ -55,7 +57,7 @@ export function IssuePage() {
       </>
     )
   }
-  if (!detail || !projectId || !project || !('key' in project)) return <p className="muted">Đang tải…</p>
+  if (!detail || !projectId || !project || !('key' in project)) return <PageSkeleton />
 
   return <IssueView key={detail.issue.id} detail={detail} project={project} reload={reload} />
 }
@@ -233,6 +235,7 @@ function IssueView({ detail, project, reload }: { detail: IssueDetail; project: 
               <dd>{formatDateTime(issue.updatedAt)}</dd>
             </dl>
           </section>
+          <RelatedDocuments projectId={issue.projectId} targetType="ISSUE" targetId={issue.id} />
           <History issueId={issue.id} version={issue.updatedAt} names={workflow.names} />
 
         </div>

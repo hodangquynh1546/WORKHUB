@@ -1,13 +1,13 @@
 import { useState } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router'
+import { NavLink, Outlet } from 'react-router'
 import { api } from '../api/client'
 import { errorMessage } from '../api/errors'
 import { useAuth } from '../auth/AuthContext'
+import { AccountMenu } from './AccountMenu'
 
 /** Shell for signed-in pages: top bar, email-verification banner, page content. */
 export function Layout() {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
+  const { user } = useAuth()
   const [resendState, setResendState] = useState<string | null>(null)
 
   async function resendVerification() {
@@ -27,21 +27,8 @@ export function Layout() {
         </NavLink>
         <nav>
           <NavLink to="/workspaces">Workspaces</NavLink>
-          <NavLink to="/profile">Hồ sơ</NavLink>
         </nav>
-        <div className="topbar-user">
-          <span>{user?.fullName}</span>
-          <button
-            type="button"
-            className="button-secondary"
-            onClick={async () => {
-              await logout()
-              navigate('/login')
-            }}
-          >
-            Đăng xuất
-          </button>
-        </div>
+        <AccountMenu />
       </header>
       {user && !user.emailVerified && (
         <div className="banner">

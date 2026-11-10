@@ -1,5 +1,7 @@
 package com.workhub.user;
 
+import java.io.IOException;
+
 import jakarta.validation.Valid;
 
 import com.workhub.auth.AuthRequests;
@@ -9,15 +11,19 @@ import com.workhub.auth.RefreshCookies;
 import com.workhub.security.CurrentUser;
 
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /** The signed-in user's own account. */
 @RestController
@@ -44,6 +50,17 @@ public class ProfileController {
 	@PutMapping
 	public UserProfile update(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody UpdateProfileRequest request) {
 		return userService.updateProfile(CurrentUser.id(jwt), request);
+	}
+
+	@PutMapping(path = "/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	public UserProfile uploadAvatar(@AuthenticationPrincipal Jwt jwt, @RequestParam("file") MultipartFile file)
+			throws IOException {
+		return userService.uploadAvatar(CurrentUser.id(jwt), file.getContentType(), file.getBytes());
+	}
+
+	@DeleteMapping("/avatar")
+	public UserProfile removeAvatar(@AuthenticationPrincipal Jwt jwt) {
+		return userService.removeAvatar(CurrentUser.id(jwt));
 	}
 
 	/** Other sessions are signed out; the caller gets a new session in the response. */

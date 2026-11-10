@@ -3,3 +3,6 @@
 .vscode/
 *.iml
 .env
+
+# Claude Code local config and skills (not shared through the repo)
+.claude/

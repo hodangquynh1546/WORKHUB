@@ -10,6 +10,7 @@ import { InviteForm, PendingInvitations } from '../components/Invitations'
 import { ProjectList } from '../components/ProjectList'
 import { ROLE_LABELS } from './roles'
 import { WorkspaceLogo } from './WorkspacesPage'
+import { PageSkeleton } from '../components/Skeleton'
 
 export function WorkspacePage() {
   const { workspaceId } = useParams()
@@ -23,7 +24,7 @@ export function WorkspacePage() {
       </>
     )
   }
-  if (!workspace) return <p className="muted">Đang tải…</p>
+  if (!workspace) return <PageSkeleton />
 
   const can = (p: Workspace['permissions'][number]) => workspace.permissions.includes(p)
 

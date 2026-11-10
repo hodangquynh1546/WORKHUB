@@ -6,7 +6,6 @@ import { IssuePage } from './pages/IssuePage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { InvitationPage } from './pages/InvitationPage'
 import { LoginPage } from './pages/LoginPage'
-import { ProfilePage } from './pages/ProfilePage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { BacklogPage } from './pages/project/BacklogPage'
@@ -16,6 +15,9 @@ import { SprintsPage } from './pages/project/SprintsPage'
 import { MembersPage } from './pages/project/MembersPage'
 import { OverviewPage } from './pages/project/OverviewPage'
 import { ProjectLayout } from './pages/project/ProjectLayout'
+import { DocumentPage } from './pages/documents/DocumentPage'
+import { DocumentsPage } from './pages/documents/DocumentsPage'
+import { ReportsPage } from './pages/project/ReportsPage'
 import { SettingsPage } from './pages/project/SettingsPage'
 import { TeamPage } from './pages/TeamPage'
 import { VerifyEmailPage } from './pages/VerifyEmailPage'
@@ -48,10 +50,12 @@ export default function App() {
                 <Route path="sprints" element={<SprintsPage />} />
                 <Route path="sprints/:sprintId" element={<SprintPage />} />
                 <Route path="board" element={<BoardPage />} />
+                <Route path="documents" element={<DocumentsPage />} />
+                <Route path="documents/:documentId" element={<DocumentPage />} />
+                <Route path="reports" element={<ReportsPage />} />
                 <Route path="members" element={<MembersPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
-              <Route path="/profile" element={<ProfilePage />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/workspaces" replace />} />

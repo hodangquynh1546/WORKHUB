@@ -48,6 +48,7 @@ export function refreshSession(): Promise<AuthResponse | null> {
   return refreshInFlight
 }
 
+/** `body` is sent as JSON, or as multipart when it is a FormData (file uploads). */
 type RequestOptions = { method?: string; body?: unknown }
 
 /** Calls the backend. Retries once after refreshing the session when the access token has expired. */
@@ -56,12 +57,13 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   const isPublic = path.startsWith('/api/auth/') || path.startsWith('/api/public/')
   const send = () => {
     const headers: Record<string, string> = {}
-    if (options.body !== undefined) headers['Content-Type'] = 'application/json'
+    const isForm = options.body instanceof FormData
+    if (options.body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
     if (accessToken && !isPublic) headers.Authorization = `Bearer ${accessToken}`
     return fetch(path, {
       method: options.method ?? 'GET',
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body: options.body === undefined ? undefined : isForm ? (options.body as FormData) : JSON.stringify(options.body),
     })
   }
 
@@ -76,4 +78,21 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     throw new ApiError(res.status, data?.detail ?? `HTTP ${res.status}`, data?.code, data?.errors)
   }
   return data as T
+}
+
+/** Downloads a file that needs the bearer token (so a plain link cannot): fetch it, then save the blob. */
+export async function downloadFile(path: string, fileName: string): Promise<void> {
+  const send = () => fetch(path, { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {} })
+  let res = await send()
+  if (res.status === 401 && accessToken && (await refreshSession())) res = await send()
+  if (!res.ok) {
+    const data = await res.json().catch(() => null)
+    throw new ApiError(res.status, data?.detail ?? `HTTP ${res.status}`, data?.code, data?.errors)
+  }
+  const url = URL.createObjectURL(await res.blob())
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(url)
 }

@@ -1,0 +1,669 @@
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Link, useNavigate, useParams } from 'react-router'
+import { ApiError, api, downloadFile } from '../../api/client'
+import { errorMessage } from '../../api/errors'
+import type {
+  DocumentAttachment,
+  DocumentDetail,
+  DocumentFolder,
+  DocumentType,
+  DocumentVersionDetail,
+  DocumentVersionSummary,
+  Issue,
+  Page,
+  Sprint,
+} from '../../api/types'
+import { useResource } from '../../api/useResource'
+import { Alert } from '../../components/Form'
+import { Markdown } from '../../components/Markdown'
+import { PageSkeleton } from '../../components/Skeleton'
+import { useProject } from '../project/projectContext'
+import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS, formatBytes, formatWhen } from './labels'
+import { diffLines } from './lineDiff'
+
+type Draft = { title: string; type: DocumentType; folderId: string; content: string; note: string; baseVersion: number }
+
+const MAX_FILE = 10 * 1024 * 1024
+
+export function DocumentPage() {
+  const { documentId } = useParams()
+  const { project } = useProject()
+  const navigate = useNavigate()
+  const { data: doc, error, reload } = useResource<DocumentDetail>(`/api/documents/${documentId}`)
+  const folders = useResource<DocumentFolder[]>(`/api/projects/${project.id}/document-folders`)
+  const [draft, setDraft] = useState<Draft | null>(null)
+  const [viewing, setViewing] = useState<DocumentVersionDetail | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [conflict, setConflict] = useState<DocumentDetail | null>(null)
+
+  const dirty = !!doc && !!draft && (draft.title !== doc.title || draft.content !== doc.content || draft.type !== doc.type || draft.folderId !== (doc.folderId ?? ''))
+  useEffect(() => {
+    if (!dirty) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
+
+  if (error) {
+    return (
+      <>
+        <Alert>{error}</Alert>
+        <Link to={`/projects/${project.id}/documents`}>← Danh sách tài liệu</Link>
+      </>
+    )
+  }
+  if (!doc) return <PageSkeleton />
+
+  async function run(action: () => Promise<unknown>) {
+    setActionError(null)
+    try {
+      await action()
+      reload()
+    } catch (err) {
+      setActionError(errorMessage(err))
+    }
+  }
+
+  function startEditing(current: DocumentDetail) {
+    setViewing(null)
+    setConflict(null)
+    setDraft({ title: current.title, type: current.type, folderId: current.folderId ?? '', content: current.content, note: '', baseVersion: current.version })
+  }
+
+  async function save() {
+    if (!draft || !doc) return
+    setActionError(null)
+    try {
+      await api(`/api/documents/${doc.id}`, {
+        method: 'PUT',
+        body: { title: draft.title, type: draft.type, folderId: draft.folderId || null, content: draft.content, note: draft.note || null, baseVersion: draft.baseVersion },
+      })
+      setDraft(null)
+      setConflict(null)
+      reload()
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'DOCUMENT_CONFLICT') {
+        // Someone saved first: fetch their version so the editor can choose what to do.
+        setConflict(await api<DocumentDetail>(`/api/documents/${doc.id}`))
+      } else {
+        setActionError(errorMessage(err))
+      }
+    }
+  }
+
+  async function openVersion(number: number) {
+    setActionError(null)
+    try {
+      setViewing(await api<DocumentVersionDetail>(`/api/documents/${doc!.id}/versions/${number}`))
+    } catch (err) {
+      setActionError(errorMessage(err))
+    }
+  }
+
+  const archived = doc.status === 'ARCHIVED'
+  return (
+    <>
+      <Link to={`/projects/${project.id}/documents`} className="muted-link">
+        ← Tài liệu
+      </Link>
+      <header className="issue-header">
+        <div>
+          <div className="doc-card-title">
+            <span className="badge">{DOCUMENT_TYPE_LABELS[doc.type]}</span>
+            <span className="badge badge-muted">Phiên bản {doc.version}</span>
+            {archived && <span className="badge badge-muted">Đã lưu trữ</span>}
+          </div>
+          <h1>{doc.title}</h1>
+        </div>
+        {!draft && (
+          <div className="actions">
+            {doc.canEdit && <button type="button" onClick={() => startEditing(doc)}>Chỉnh sửa</button>}
+            {project.permissions.includes('EDIT_DOCUMENTS') && project.status !== 'ARCHIVED' && (
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => run(() => api(`/api/documents/${doc.id}/${archived ? 'unarchive' : 'archive'}`, { method: 'POST' }))}
+              >
+                {archived ? 'Bỏ lưu trữ' : 'Lưu trữ'}
+              </button>
+            )}
+            {doc.canDelete && (
+              <button
+                type="button"
+                className="button-danger"
+                onClick={async () => {
+                  if (!window.confirm('Xóa tài liệu này? Lịch sử phiên bản cũng sẽ không còn xem được.')) return
+                  try {
+                    await api(`/api/documents/${doc.id}`, { method: 'DELETE' })
+                    navigate(`/projects/${project.id}/documents`)
+                  } catch (err) {
+                    setActionError(errorMessage(err))
+                  }
+                }}
+              >
+                Xóa
+              </button>
+            )}
+          </div>
+        )}
+      </header>
+      {archived && <Alert kind="info">Tài liệu đã lưu trữ: chỉ xem. Bỏ lưu trữ để sửa tiếp.</Alert>}
+      <Alert>{actionError}</Alert>
+
+      <div className="two-column">
+        <div className="stack-lg">
+          {draft ? (
+            <Editor
+              draft={draft}
+              setDraft={setDraft}
+              folders={folders.data ?? []}
+              conflict={conflict}
+              onSave={save}
+              onCancel={() => {
+                if (dirty && !window.confirm('Bỏ các thay đổi chưa lưu?')) return
+                setDraft(null)
+                setConflict(null)
+              }}
+              onTakeLatest={() => (setDraft(null), setConflict(null), reload())}
+              onOverwrite={() => conflict && (setDraft({ ...draft, baseVersion: conflict.version }), setConflict(null))}
+            />
+          ) : viewing ? (
+            <VersionView
+              viewing={viewing}
+              current={doc}
+              onClose={() => setViewing(null)}
+              onRestore={
+                doc.canEdit && viewing.version !== doc.version
+                  ? () =>
+                      run(async () => {
+                        await api(`/api/documents/${doc.id}/versions/${viewing.version}/restore`, { method: 'POST' })
+                        setViewing(null)
+                      })
+                  : undefined
+              }
+            />
+          ) : (
+            <section className="card">
+              <Markdown source={doc.content} />
+            </section>
+          )}
+        </div>
+
+        <div className="stack-lg">
+          <section className="card stack">
+            <h2>Thông tin</h2>
+            <dl className="facts">
+              <dt>Người tạo</dt>
+              <dd>{doc.createdBy?.fullName ?? '—'}</dd>
+              <dt>Tạo lúc</dt>
+              <dd>{formatWhen(doc.createdAt)}</dd>
+              <dt>Sửa gần nhất</dt>
+              <dd>
+                {doc.updatedBy?.fullName ?? '—'}, {formatWhen(doc.updatedAt)}
+              </dd>
+              <dt>Thư mục</dt>
+              <dd>{folders.data?.find((f) => f.id === doc.folderId)?.name ?? 'Chưa phân loại'}</dd>
+            </dl>
+          </section>
+          <Attachments doc={doc} onChanged={reload} />
+          <Links doc={doc} projectId={project.id} onChanged={reload} />
+          <History
+            doc={doc}
+            viewingVersion={viewing?.version ?? null}
+            onOpen={openVersion}
+            onRestore={(n) => run(() => api(`/api/documents/${doc.id}/versions/${n}/restore`, { method: 'POST' }))}
+          />
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ---------- editor ----------
+
+function Editor({
+  draft,
+  setDraft,
+  folders,
+  conflict,
+  onSave,
+  onCancel,
+  onTakeLatest,
+  onOverwrite,
+}: {
+  draft: Draft
+  setDraft: (draft: Draft) => void
+  folders: DocumentFolder[]
+  conflict: DocumentDetail | null
+  onSave: () => Promise<void>
+  onCancel: () => void
+  onTakeLatest: () => void
+  onOverwrite: () => void
+}) {
+  const [tab, setTab] = useState<'write' | 'preview'>('write')
+  const [busy, setBusy] = useState(false)
+  const set = (patch: Partial<Draft>) => setDraft({ ...draft, ...patch })
+
+  return (
+    <section className="card stack">
+      {conflict && (
+        <div className="alert alert-error conflict-box" role="alert">
+          <strong>{conflict.updatedBy?.fullName ?? 'Người khác'} vừa lưu phiên bản {conflict.version}.</strong>
+          <span>Bản của bạn được viết trên phiên bản {draft.baseVersion}, nên chưa được lưu để tránh ghi đè mất nội dung của họ.</span>
+          <div className="actions">
+            <button type="button" className="button-secondary button-small" onClick={onTakeLatest}>
+              Lấy bản mới nhất, bỏ thay đổi của tôi
+            </button>
+            <button type="button" className="button-small" onClick={onOverwrite}>
+              Giữ bản của tôi để lưu đè
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="inline-form editor-meta">
+        <label className="field editor-title">
+          <span>Tiêu đề</span>
+          <input value={draft.title} maxLength={200} required onChange={(e) => set({ title: e.target.value })} />
+        </label>
+        <label className="field">
+          <span>Loại</span>
+          <select value={draft.type} onChange={(e) => set({ type: e.target.value as DocumentType })}>
+            {DOCUMENT_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {DOCUMENT_TYPE_LABELS[t]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>Thư mục</span>
+          <select value={draft.folderId} onChange={(e) => set({ folderId: e.target.value })}>
+            <option value="">Chưa phân loại</option>
+            {folders.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="segmented-control" role="group" aria-label="Chế độ soạn thảo">
+        <button type="button" className={tab === 'write' ? 'on' : ''} onClick={() => setTab('write')}>
+          Soạn thảo
+        </button>
+        <button type="button" className={tab === 'preview' ? 'on' : ''} onClick={() => setTab('preview')}>
+          Xem trước
+        </button>
+      </div>
+      {tab === 'write' ? (
+        <textarea
+          className="editor-text"
+          rows={22}
+          maxLength={100000}
+          value={draft.content}
+          placeholder={'# Tiêu đề\n\nViết bằng Markdown: **đậm**, *nghiêng*, - danh sách, `mã`, [liên kết](https://…), bảng | a | b |'}
+          onChange={(e) => set({ content: e.target.value })}
+          aria-label="Nội dung tài liệu"
+        />
+      ) : (
+        <div className="editor-preview">
+          <Markdown source={draft.content} />
+        </div>
+      )}
+      <label className="field">
+        <span>Ghi chú thay đổi (không bắt buộc)</span>
+        <input value={draft.note} maxLength={200} placeholder="Ví dụ: bổ sung mục API đăng nhập" onChange={(e) => set({ note: e.target.value })} />
+      </label>
+      <div className="actions">
+        <button
+          type="button"
+          disabled={busy || !draft.title.trim()}
+          onClick={async () => {
+            setBusy(true)
+            await onSave()
+            setBusy(false)
+          }}
+        >
+          Lưu phiên bản mới
+        </button>
+        <button type="button" className="button-secondary" onClick={onCancel}>
+          Hủy
+        </button>
+        <span className="muted small editor-count">{draft.content.length.toLocaleString('vi-VN')} / 100.000 ký tự</span>
+      </div>
+    </section>
+  )
+}
+
+// ---------- viewing an old version ----------
+
+function VersionView({
+  viewing,
+  current,
+  onClose,
+  onRestore,
+}: {
+  viewing: DocumentVersionDetail
+  current: DocumentDetail
+  onClose: () => void
+  onRestore?: () => void
+}) {
+  const [mode, setMode] = useState<'read' | 'diff'>('read')
+  const diff = mode === 'diff' ? diffLines(viewing.content, current.content) : null
+  const isCurrent = viewing.version === current.version
+  return (
+    <section className="card stack">
+      <div className="section-header">
+        <h2>
+          Phiên bản {viewing.version}
+          {isCurrent && ' (hiện tại)'}
+        </h2>
+        <div className="actions">
+          {onRestore && (
+            <button type="button" className="button-small" onClick={onRestore}>
+              Khôi phục bản này
+            </button>
+          )}
+          <button type="button" className="button-secondary button-small" onClick={onClose}>
+            Đóng
+          </button>
+        </div>
+      </div>
+      <p className="muted small">
+        {viewing.author?.fullName ?? 'Ai đó'} lưu lúc {formatWhen(viewing.createdAt)}
+        {viewing.note && ` · ${viewing.note}`}
+      </p>
+      {!isCurrent && (
+        <div className="segmented-control" role="group" aria-label="Cách xem">
+          <button type="button" className={mode === 'read' ? 'on' : ''} onClick={() => setMode('read')}>
+            Nội dung
+          </button>
+          <button type="button" className={mode === 'diff' ? 'on' : ''} onClick={() => setMode('diff')}>
+            So với bản hiện tại
+          </button>
+        </div>
+      )}
+      {mode === 'read' || isCurrent ? (
+        <>
+          {viewing.title !== current.title && <p className="muted small">Tiêu đề lúc đó: {viewing.title}</p>}
+          <Markdown source={viewing.content} />
+        </>
+      ) : diff ? (
+        <DiffView lines={diff} />
+      ) : (
+        <Alert kind="info">Văn bản quá dài để so sánh từng dòng. Hãy xem từng phiên bản riêng.</Alert>
+      )}
+    </section>
+  )
+}
+
+/** Changed lines with two lines of context; long unchanged stretches are folded. */
+function DiffView({ lines }: { lines: { kind: 'same' | 'add' | 'del'; text: string }[] }) {
+  const changed = lines.some((l) => l.kind !== 'same')
+  if (!changed) return <p className="muted">Hai phiên bản có nội dung giống nhau.</p>
+  const show = lines.map((l, i) => l.kind !== 'same' || lines.slice(Math.max(0, i - 2), i + 3).some((n) => n.kind !== 'same'))
+  const rows: ReactNode[] = []
+  lines.forEach((line, i) => {
+    if (show[i]) rows.push(<div key={i} className={`diff-line diff-${line.kind}`}>{line.kind === 'add' ? '+ ' : line.kind === 'del' ? '− ' : '  '}{line.text || ' '}</div>)
+    else if (show[i - 1]) rows.push(<div key={i} className="diff-fold">…</div>)
+  })
+  return (
+    <div className="diff" role="region" aria-label="So sánh phiên bản">
+      <p className="muted small">Dòng đỏ chỉ có ở phiên bản này, dòng xanh chỉ có ở bản hiện tại.</p>
+      {rows}
+    </div>
+  )
+}
+
+// ---------- sidebar sections ----------
+
+function Attachments({ doc, onChanged }: { doc: DocumentDetail; onChanged: () => void }) {
+  const input = useRef<HTMLInputElement>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function upload(files: FileList | null) {
+    if (!files?.length) return
+    setError(null)
+    setBusy(true)
+    try {
+      for (const file of Array.from(files)) {
+        if (file.size > MAX_FILE) throw new Error(`"${file.name}" lớn hơn 10 MB.`)
+        const form = new FormData()
+        form.append('file', file)
+        await api(`/api/documents/${doc.id}/attachments`, { method: 'POST', body: form })
+      }
+      onChanged()
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function act(action: () => Promise<unknown>) {
+    setError(null)
+    try {
+      await action()
+      onChanged()
+    } catch (err) {
+      setError(errorMessage(err))
+    }
+  }
+
+  return (
+    <section className="card stack">
+      <div className="section-header">
+        <h2>Tệp đính kèm</h2>
+        {doc.canEdit && (
+          <>
+            <button type="button" className="button-secondary button-small" disabled={busy} onClick={() => input.current?.click()}>
+              Tải tệp lên
+            </button>
+            <input ref={input} type="file" multiple hidden onChange={(e) => (void upload(e.target.files), (e.target.value = ''))} />
+          </>
+        )}
+      </div>
+      {doc.attachments.length === 0 && <p className="muted small">Chưa có tệp nào. Mỗi tệp tối đa 10 MB.</p>}
+      <ul className="plain-list">
+        {doc.attachments.map((a: DocumentAttachment) => (
+          <li key={a.id} className="row">
+            <div>
+              <button type="button" className="link-button" onClick={() => act(() => downloadFile(`/api/documents/${doc.id}/attachments/${a.id}`, a.fileName))}>
+                {a.fileName}
+              </button>
+              <p className="muted small">
+                {formatBytes(a.sizeBytes)} · {a.uploadedBy?.fullName ?? 'Ai đó'}, {formatWhen(a.createdAt)}
+              </p>
+            </div>
+            {doc.canEdit && (
+              <button
+                type="button"
+                className="button-danger button-small"
+                onClick={() => window.confirm(`Xóa "${a.fileName}"?`) && act(() => api(`/api/documents/${doc.id}/attachments/${a.id}`, { method: 'DELETE' }))}
+              >
+                Xóa
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      <Alert>{error}</Alert>
+    </section>
+  )
+}
+
+function Links({ doc, projectId, onChanged }: { doc: DocumentDetail; projectId: string; onChanged: () => void }) {
+  const [adding, setAdding] = useState(false)
+  const [kind, setKind] = useState<'ISSUE' | 'SPRINT'>('ISSUE')
+  const [error, setError] = useState<string | null>(null)
+
+  async function change(action: () => Promise<unknown>) {
+    setError(null)
+    try {
+      await action()
+      onChanged()
+    } catch (err) {
+      setError(errorMessage(err))
+    }
+  }
+
+  const link = (type: 'ISSUE' | 'SPRINT', targetId: string) =>
+    change(async () => {
+      await api(`/api/documents/${doc.id}/links`, { method: 'POST', body: { targetType: type, targetId } })
+      setAdding(false)
+    })
+
+  const linked = new Set(doc.links.map((l) => l.targetId))
+  return (
+    <section className="card stack">
+      <div className="section-header">
+        <h2>Gắn với</h2>
+        {doc.canEdit && (
+          <button type="button" className="button-secondary button-small" onClick={() => setAdding((v) => !v)}>
+            {adding ? 'Đóng' : 'Thêm'}
+          </button>
+        )}
+      </div>
+      {doc.links.length === 0 && !adding && <p className="muted small">Chưa gắn với công việc hay sprint nào.</p>}
+      <ul className="plain-list">
+        {doc.links.map((l) => (
+          <li key={`${l.targetType}-${l.targetId}`} className="row">
+            <div>
+              <Link to={l.targetType === 'ISSUE' ? `/issues/${l.targetId}` : `/projects/${projectId}/sprints/${l.targetId}`}>{l.label}</Link>
+              <p className="muted small">{l.targetType === 'ISSUE' ? 'Công việc' : 'Sprint'}</p>
+            </div>
+            {doc.canEdit && (
+              <button type="button" className="button-secondary button-small" onClick={() => change(() => api(`/api/documents/${doc.id}/links/${l.targetType}/${l.targetId}`, { method: 'DELETE' }))}>
+                Gỡ
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {adding && (
+        <div className="stack">
+          <div className="segmented-control" role="group" aria-label="Loại đối tượng">
+            <button type="button" className={kind === 'ISSUE' ? 'on' : ''} onClick={() => setKind('ISSUE')}>
+              Công việc
+            </button>
+            <button type="button" className={kind === 'SPRINT' ? 'on' : ''} onClick={() => setKind('SPRINT')}>
+              Sprint
+            </button>
+          </div>
+          {kind === 'ISSUE' ? (
+            <IssuePicker projectId={projectId} linked={linked} onPick={(id) => link('ISSUE', id)} />
+          ) : (
+            <SprintPicker projectId={projectId} linked={linked} onPick={(id) => link('SPRINT', id)} />
+          )}
+        </div>
+      )}
+      <Alert>{error}</Alert>
+    </section>
+  )
+}
+
+function IssuePicker({ projectId, linked, onPick }: { projectId: string; linked: Set<string>; onPick: (id: string) => void }) {
+  const [q, setQ] = useState('')
+  const [debounced, setDebounced] = useState('')
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(q.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [q])
+  return (
+    <>
+      <input type="search" placeholder="Tìm công việc theo tên hoặc mã…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Tìm công việc" autoFocus />
+      {debounced && <IssueResults projectId={projectId} q={debounced} linked={linked} onPick={onPick} />}
+    </>
+  )
+}
+
+function IssueResults({ projectId, q, linked, onPick }: { projectId: string; q: string; linked: Set<string>; onPick: (id: string) => void }) {
+  const { data, error } = useResource<Page<Issue>>(`/api/projects/${projectId}/issues?q=${encodeURIComponent(q)}&size=8`)
+  const items = data?.items.filter((i) => !linked.has(i.id))
+  return (
+    <>
+      <Alert>{error}</Alert>
+      {items?.length === 0 && <p className="muted small">Không tìm thấy công việc nào.</p>}
+      <ul className="plain-list picker-list">
+        {items?.map((i) => (
+          <li key={i.id} className="row">
+            <span>
+              <strong>{i.key}</strong> {i.title}
+            </span>
+            <button type="button" className="button-small" onClick={() => onPick(i.id)}>
+              Gắn
+            </button>
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}
+
+function SprintPicker({ projectId, linked, onPick }: { projectId: string; linked: Set<string>; onPick: (id: string) => void }) {
+  const { data, error } = useResource<Sprint[]>(`/api/projects/${projectId}/sprints`)
+  const items = data?.filter((s) => !linked.has(s.id))
+  return (
+    <>
+      <Alert>{error}</Alert>
+      {items?.length === 0 && <p className="muted small">Không còn sprint nào để gắn.</p>}
+      <ul className="plain-list picker-list">
+        {items?.map((s) => (
+          <li key={s.id} className="row">
+            <span>{s.name}</span>
+            <button type="button" className="button-small" onClick={() => onPick(s.id)}>
+              Gắn
+            </button>
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}
+
+function History({
+  doc,
+  viewingVersion,
+  onOpen,
+  onRestore,
+}: {
+  doc: DocumentDetail
+  viewingVersion: number | null
+  onOpen: (version: number) => void
+  onRestore: (version: number) => void
+}) {
+  // The revision in the path refetches the list after every save or restore.
+  const { data, error } = useResource<DocumentVersionSummary[]>(`/api/documents/${doc.id}/versions?rev=${doc.version}`)
+  return (
+    <section className="card stack">
+      <h2>Lịch sử phiên bản</h2>
+      <Alert>{error}</Alert>
+      <ul className="plain-list">
+        {data?.map((v) => (
+          <li key={v.version} className={`row version-row ${viewingVersion === v.version ? 'on' : ''}`}>
+            <div>
+              <button type="button" className="link-button" onClick={() => onOpen(v.version)}>
+                Phiên bản {v.version}
+                {v.version === doc.version && ' (hiện tại)'}
+              </button>
+              <p className="muted small">
+                {v.author?.fullName ?? 'Ai đó'}, {formatWhen(v.createdAt)}
+              </p>
+              {v.note && <p className="small">{v.note}</p>}
+            </div>
+            {doc.canEdit && v.version !== doc.version && (
+              <button
+                type="button"
+                className="button-secondary button-small"
+                onClick={() => window.confirm(`Khôi phục phiên bản ${v.version}? Nó sẽ trở thành phiên bản mới nhất, lịch sử vẫn được giữ.`) && onRestore(v.version)}
+              >
+                Khôi phục
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}

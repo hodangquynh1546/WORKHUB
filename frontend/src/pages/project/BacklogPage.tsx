@@ -16,6 +16,7 @@ import {
   TYPE_LABELS,
 } from '../issueLabels'
 import { useProject } from './projectContext'
+import { ListSkeleton } from '../../components/Skeleton'
 
 const PAGE_SIZE = 200
 /** Sub-tasks need a parent, so they are created from their parent's page. */
@@ -233,7 +234,7 @@ export function BacklogPage() {
       </div>
 
       <Alert>{loadError ?? actionError}</Alert>
-      {items === null && !loadError && <p className="muted">Đang tải…</p>}
+      {items === null && !loadError && <ListSkeleton />}
       {items?.length === 0 && <p className="muted">{filtered ? 'Không có công việc nào khớp bộ lọc.' : 'Backlog đang trống. Hãy thêm công việc đầu tiên ở trên.'}</p>}
       {items && total > items.length && <Alert kind="info">Đang hiển thị {items.length}/{total} công việc đầu tiên. Hãy dùng bộ lọc để thu hẹp danh sách.</Alert>}
       {canDrag && items && items.length > 1 && <p className="muted small">Kéo biểu tượng ⠿ để sắp xếp thứ tự ưu tiên.</p>}

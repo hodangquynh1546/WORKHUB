@@ -95,6 +95,7 @@ export type ProjectPermission =
   | 'MANAGE_SPRINTS'
   | 'EDIT_ISSUES'
   | 'COMMENT'
+  | 'EDIT_DOCUMENTS'
 
 export type Project = {
   id: string
@@ -290,4 +291,164 @@ export type Board = {
   columns: WorkflowEntry[]
   issues: Issue[]
   permissions: ProjectPermission[]
+}
+
+// ---- Reports (M6) ----
+
+export type ChartDay = {
+  date: string
+  /** False for days with no recorded state; the numbers are then null. */
+  actual: boolean
+  idealPoints: number
+  idealIssues: number
+  scopePoints: number | null
+  donePoints: number | null
+  remainingPoints: number | null
+  scopeIssues: number | null
+  todoIssues: number | null
+  inProgressIssues: number | null
+  doneIssues: number | null
+  remainingIssues: number | null
+}
+
+export type SprintCharts = {
+  sprintId: string
+  name: string
+  status: SprintStatus
+  started: boolean
+  startDate: string
+  endDate: string
+  workdays: number
+  committedPoints: number | null
+  committedIssues: number | null
+  days: ChartDay[]
+}
+
+export type VelocitySprint = {
+  sprintId: string
+  name: string
+  endDate: string
+  committedPoints: number
+  completedPoints: number
+  committedIssues: number
+  completedIssues: number
+}
+
+export type Velocity = { sprints: VelocitySprint[]; average: number | null }
+
+export type FlowPoint = {
+  issueId: string
+  key: string
+  title: string
+  doneDate: string
+  leadDays: number
+  cycleDays: number | null
+}
+
+export type FlowSummary = {
+  count: number
+  avgLead: number | null
+  medianLead: number | null
+  p85Lead: number | null
+  avgCycle: number | null
+  medianCycle: number | null
+  p85Cycle: number | null
+}
+
+export type LeadTime = { days: number; summary: FlowSummary; points: FlowPoint[] }
+
+export type WorkloadRow = {
+  userId: string | null
+  fullName: string | null
+  avatarUrl: string | null
+  todoIssues: number
+  inProgressIssues: number
+  openPoints: number
+}
+
+export type Workload = { rows: WorkloadRow[] }
+
+export type BugWeek = { weekStart: string; created: number; resolved: number; open: number }
+
+export type BugTrend = { weeks: BugWeek[] }
+
+// ---- Documents (M7) ----
+
+export type DocumentType =
+  | 'PROJECT_CHARTER'
+  | 'BUSINESS_REQUIREMENTS'
+  | 'SRS'
+  | 'TECHNICAL_DESIGN'
+  | 'API_DOCUMENTATION'
+  | 'MEETING_MINUTES'
+  | 'SPRINT_PLANNING_NOTES'
+  | 'SPRINT_REVIEW_REPORT'
+  | 'SPRINT_RETROSPECTIVE_REPORT'
+  | 'TEST_PLAN'
+  | 'RELEASE_NOTES'
+  | 'OTHER'
+
+export type DocumentStatus = 'ACTIVE' | 'ARCHIVED'
+
+export type DocumentFolder = { id: string; parentId: string | null; name: string; documentCount: number }
+
+export type DocumentSummary = {
+  id: string
+  title: string
+  type: DocumentType
+  folderId: string | null
+  status: DocumentStatus
+  version: number
+  excerpt: string
+  updatedBy: UserRef | null
+  updatedAt: string
+  attachmentCount: number
+}
+
+export type DocumentAttachment = {
+  id: string
+  fileName: string
+  contentType: string
+  sizeBytes: number
+  uploadedBy: UserRef | null
+  createdAt: string
+}
+
+export type DocumentLink = { targetType: 'ISSUE' | 'SPRINT'; targetId: string; label: string; detail: string }
+
+export type DocumentDetail = {
+  id: string
+  projectId: string
+  title: string
+  type: DocumentType
+  folderId: string | null
+  status: DocumentStatus
+  version: number
+  content: string
+  createdBy: UserRef | null
+  updatedBy: UserRef | null
+  createdAt: string
+  updatedAt: string
+  attachments: DocumentAttachment[]
+  links: DocumentLink[]
+  canEdit: boolean
+  canDelete: boolean
+}
+
+export type DocumentVersionSummary = {
+  version: number
+  title: string
+  note: string | null
+  author: UserRef | null
+  createdAt: string
+  length: number
+}
+
+export type DocumentVersionDetail = {
+  version: number
+  title: string
+  content: string
+  note: string | null
+  author: UserRef | null
+  createdAt: string
 }

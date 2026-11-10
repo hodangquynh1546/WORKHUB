@@ -10,6 +10,7 @@ import { PriorityBadge, TypeBadge } from '../../components/IssueBits'
 import { GOAL_OUTCOME_LABELS, REFINEMENT_LABELS, SPRINT_STATUS_LABELS } from '../issueLabels'
 import { formatDay, localIsoDate, scheduleProgress } from '../roles'
 import { useProject } from './projectContext'
+import { PageSkeleton } from '../../components/Skeleton'
 
 export function SprintPage() {
   const { sprintId } = useParams()
@@ -25,7 +26,7 @@ export function SprintPage() {
       </>
     )
   }
-  if (!detail) return <p className="muted">Đang tải…</p>
+  if (!detail) return <PageSkeleton />
 
   const { sprint, dashboard, issues } = detail
   const open = sprint.status === 'FUTURE' || sprint.status === 'ACTIVE'

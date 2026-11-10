@@ -4,9 +4,10 @@ import { useResource } from '../../api/useResource'
 import { Alert } from '../../components/Form'
 import { METHODOLOGY_LABELS, PROJECT_STATUS_LABELS } from '../roles'
 import type { ProjectContext } from './projectContext'
+import { PageSkeleton } from '../../components/Skeleton'
 
 /** Areas that arrive in later milestones; shown so the project's shape is visible. */
-const COMING_SOON = ['Tài liệu', 'Cuộc họp', 'Lịch', 'Báo cáo']
+const COMING_SOON = ['Cuộc họp', 'Lịch']
 
 export function ProjectLayout() {
   const { projectId } = useParams()
@@ -20,7 +21,7 @@ export function ProjectLayout() {
       </>
     )
   }
-  if (!project) return <p className="muted">Đang tải…</p>
+  if (!project) return <PageSkeleton />
 
   const context: ProjectContext = { project, reload }
   const canUpdate = project.permissions.includes('UPDATE_PROJECT')
@@ -48,6 +49,8 @@ export function ProjectLayout() {
         <NavLink to="backlog">Backlog</NavLink>
         <NavLink to="sprints">Sprint</NavLink>
         <NavLink to="board">Board</NavLink>
+        <NavLink to="documents">Tài liệu</NavLink>
+        <NavLink to="reports">Báo cáo</NavLink>
         <NavLink to="members">Thành viên</NavLink>
         {canUpdate && <NavLink to="settings">Cài đặt</NavLink>}
         {COMING_SOON.map((label) => (

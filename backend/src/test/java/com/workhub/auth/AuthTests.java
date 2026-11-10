@@ -3,9 +3,12 @@ package com.workhub.auth;
 import static com.workhub.support.TestApi.PASSWORD;
 import static com.workhub.support.TestApi.json;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -19,7 +22,9 @@ import com.workhub.support.TestApi.Session;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -213,16 +218,40 @@ class AuthTests {
 
 		mockMvc.perform(put("/api/me").header("Authorization", session.bearer())
 			.contentType(MediaType.APPLICATION_JSON)
-			.content(json("fullName", "  Hồ Đăng Quỳnh ", "avatarUrl", "https://example.com/a.png")))
+			.content(json("fullName", "  Hồ Đăng Quỳnh ")))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.fullName").value("Hồ Đăng Quỳnh"))
-			.andExpect(jsonPath("$.avatarUrl").value("https://example.com/a.png"));
+			.andExpect(jsonPath("$.fullName").value("Hồ Đăng Quỳnh"));
+	}
 
-		mockMvc.perform(put("/api/me").header("Authorization", session.bearer())
-			.contentType(MediaType.APPLICATION_JSON)
-			.content(json("fullName", "X", "avatarUrl", "javascript:alert(1)")))
+	@Test
+	void avatarCanBeUploadedServedAndRemoved() throws Exception {
+		Session session = TestApi.register(mockMvc);
+		byte[] png = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3, 4};
+
+		String url = com.jayway.jsonpath.JsonPath.read(mockMvc
+			.perform(multipart(HttpMethod.PUT, "/api/me/avatar")
+				.file(new MockMultipartFile("file", "a.png", "image/png", png))
+				.header("Authorization", session.bearer()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.avatarUrl").value(org.hamcrest.Matchers.startsWith("/api/public/users/")))
+			.andReturn().getResponse().getContentAsString(), "$.avatarUrl");
+
+		// Public: an <img> tag cannot send the bearer token.
+		mockMvc.perform(get(url.substring(0, url.indexOf('?'))))
+			.andExpect(status().isOk())
+			.andExpect(content().contentType("image/png"))
+			.andExpect(content().bytes(png));
+
+		mockMvc.perform(multipart(HttpMethod.PUT, "/api/me/avatar")
+			.file(new MockMultipartFile("file", "a.png", "image/png", "not an image".getBytes()))
+			.header("Authorization", session.bearer()))
 			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.errors.avatarUrl").exists());
+			.andExpect(jsonPath("$.code").value("AVATAR_INVALID_TYPE"));
+
+		mockMvc.perform(delete("/api/me/avatar").header("Authorization", session.bearer()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.avatarUrl").doesNotExist());
+		mockMvc.perform(get(url.substring(0, url.indexOf('?')))).andExpect(status().isNotFound());
 	}
 
 	@Test

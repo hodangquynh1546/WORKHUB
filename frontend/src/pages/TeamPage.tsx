@@ -10,6 +10,7 @@ import { Alert, Field } from '../components/Form'
 import { InviteForm, PendingInvitations } from '../components/Invitations'
 import { ProjectList } from '../components/ProjectList'
 import { TEAM_ROLE_LABELS } from './roles'
+import { PageSkeleton } from '../components/Skeleton'
 
 const TEAM_ROLE_OPTIONS = [
   { value: 'LEAD', label: TEAM_ROLE_LABELS.LEAD },
@@ -28,7 +29,7 @@ export function TeamPage() {
       </>
     )
   }
-  if (!team) return <p className="muted">Đang tải…</p>
+  if (!team) return <PageSkeleton />
 
   const canManageMembers = team.permissions.includes('MANAGE_MEMBERS') && !team.archived
 

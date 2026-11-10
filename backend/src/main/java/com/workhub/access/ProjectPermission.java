@@ -20,6 +20,8 @@ public enum ProjectPermission {
 	/** Create and update issues, log work. */
 	EDIT_ISSUES,
 	/** Comment on issues and documents. */
-	COMMENT
+	COMMENT,
+	/** Create and edit documents, folders, attachments and links; restore versions. */
+	EDIT_DOCUMENTS
 
 }
