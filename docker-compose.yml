@@ -1,12 +1,15 @@
+name: workhub
+
 services:
   postgres:
     image: postgres:17
     environment:
-      POSTGRES_DB: projectinvidial
-      POSTGRES_USER: projectinvidial
-      POSTGRES_PASSWORD: projectinvidial
+      POSTGRES_DB: workhub
+      POSTGRES_USER: workhub
+      POSTGRES_PASSWORD: workhub
     ports:
-      - "5432:5432"
+      # 5433 on the host avoids clashing with other local PostgreSQL instances on 5432.
+      - "127.0.0.1:${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
 

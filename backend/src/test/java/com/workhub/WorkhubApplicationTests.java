@@ -1,10 +1,10 @@
-package com.projectinvidial.backend;
+package com.workhub;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class BackendApplicationTests {
+class WorkhubApplicationTests {
 
 	@Test
 	void contextLoads() {

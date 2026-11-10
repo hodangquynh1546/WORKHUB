@@ -1,4 +1,4 @@
-package com.projectinvidial.backend.hello;
+package com.workhub.hello;
 
 import java.util.Map;
 
