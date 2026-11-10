@@ -4,6 +4,7 @@ import static com.workhub.access.ProjectPermission.COMMENT;
 import static com.workhub.access.ProjectPermission.EDIT_DOCUMENTS;
 import static com.workhub.access.ProjectPermission.EDIT_ISSUES;
 import static com.workhub.access.ProjectPermission.MANAGE_BACKLOG;
+import static com.workhub.access.ProjectPermission.MANAGE_MEETINGS;
 import static com.workhub.access.ProjectPermission.MANAGE_SPRINTS;
 import static com.workhub.access.ProjectPermission.VIEW;
 
@@ -20,10 +21,10 @@ import com.workhub.access.ProjectPermission;
 public enum ProjectRole {
 
 	PROJECT_MANAGER(EnumSet.allOf(ProjectPermission.class)),
-	PRODUCT_OWNER(EnumSet.of(VIEW, EDIT_DOCUMENTS, MANAGE_BACKLOG, MANAGE_SPRINTS, EDIT_ISSUES, COMMENT)),
-	SCRUM_MASTER(EnumSet.of(VIEW, EDIT_DOCUMENTS, MANAGE_SPRINTS, EDIT_ISSUES, COMMENT)),
-	DEVELOPER(EnumSet.of(VIEW, EDIT_DOCUMENTS, EDIT_ISSUES, COMMENT)),
-	QA_ENGINEER(EnumSet.of(VIEW, EDIT_DOCUMENTS, EDIT_ISSUES, COMMENT)),
+	PRODUCT_OWNER(EnumSet.of(VIEW, EDIT_DOCUMENTS, MANAGE_MEETINGS, MANAGE_BACKLOG, MANAGE_SPRINTS, EDIT_ISSUES, COMMENT)),
+	SCRUM_MASTER(EnumSet.of(VIEW, EDIT_DOCUMENTS, MANAGE_MEETINGS, MANAGE_SPRINTS, EDIT_ISSUES, COMMENT)),
+	DEVELOPER(EnumSet.of(VIEW, EDIT_DOCUMENTS, MANAGE_MEETINGS, EDIT_ISSUES, COMMENT)),
+	QA_ENGINEER(EnumSet.of(VIEW, EDIT_DOCUMENTS, MANAGE_MEETINGS, EDIT_ISSUES, COMMENT)),
 	STAKEHOLDER(EnumSet.of(VIEW, COMMENT));
 
 	private final Set<ProjectPermission> permissions;

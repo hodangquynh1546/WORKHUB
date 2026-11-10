@@ -6,9 +6,6 @@ import { METHODOLOGY_LABELS, PROJECT_STATUS_LABELS } from '../roles'
 import type { ProjectContext } from './projectContext'
 import { PageSkeleton } from '../../components/Skeleton'
 
-/** Areas that arrive in later milestones; shown so the project's shape is visible. */
-const COMING_SOON = ['Cuộc họp', 'Lịch']
-
 export function ProjectLayout() {
   const { projectId } = useParams()
   const { data: project, error, reload } = useResource<Project>(`/api/projects/${projectId}`)
@@ -50,14 +47,11 @@ export function ProjectLayout() {
         <NavLink to="sprints">Sprint</NavLink>
         <NavLink to="board">Board</NavLink>
         <NavLink to="documents">Tài liệu</NavLink>
+        <NavLink to="meetings">Cuộc họp</NavLink>
+        <NavLink to="calendar">Lịch</NavLink>
         <NavLink to="reports">Báo cáo</NavLink>
         <NavLink to="members">Thành viên</NavLink>
         {canUpdate && <NavLink to="settings">Cài đặt</NavLink>}
-        {COMING_SOON.map((label) => (
-          <span key={label} className="tab-disabled" title="Sắp có">
-            {label}
-          </span>
-        ))}
       </nav>
       {project.status === 'ARCHIVED' && (
         <Alert kind="info">Dự án đã được lưu trữ: chỉ xem. Quản lý dự án có thể đổi trạng thái trong phần Cài đặt để mở lại.</Alert>

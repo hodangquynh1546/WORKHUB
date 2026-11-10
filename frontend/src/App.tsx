@@ -17,6 +17,9 @@ import { OverviewPage } from './pages/project/OverviewPage'
 import { ProjectLayout } from './pages/project/ProjectLayout'
 import { DocumentPage } from './pages/documents/DocumentPage'
 import { DocumentsPage } from './pages/documents/DocumentsPage'
+import { CalendarPage } from './pages/meetings/CalendarPage'
+import { MeetingPage } from './pages/meetings/MeetingPage'
+import { MeetingsPage } from './pages/meetings/MeetingsPage'
 import { ReportsPage } from './pages/project/ReportsPage'
 import { SettingsPage } from './pages/project/SettingsPage'
 import { TeamPage } from './pages/TeamPage'
@@ -52,6 +55,9 @@ export default function App() {
                 <Route path="board" element={<BoardPage />} />
                 <Route path="documents" element={<DocumentsPage />} />
                 <Route path="documents/:documentId" element={<DocumentPage />} />
+                <Route path="meetings" element={<MeetingsPage />} />
+                <Route path="meetings/:meetingId" element={<MeetingPage />} />
+                <Route path="calendar" element={<CalendarPage />} />
                 <Route path="reports" element={<ReportsPage />} />
                 <Route path="members" element={<MembersPage />} />
                 <Route path="settings" element={<SettingsPage />} />

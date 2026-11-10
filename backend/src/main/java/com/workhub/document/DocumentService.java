@@ -16,6 +16,7 @@ import com.workhub.document.DocumentResponses.VersionDetail;
 import com.workhub.document.DocumentResponses.VersionSummary;
 import com.workhub.issue.IssueRepository;
 import com.workhub.issue.IssueResponses.UserRef;
+import com.workhub.meeting.MeetingRepository;
 import com.workhub.sprint.SprintRepository;
 
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -54,11 +55,14 @@ public class DocumentService {
 
 	private final SprintRepository sprints;
 
+	private final MeetingRepository meetings;
+
 	private final Clock clock;
 
 	DocumentService(AccessService access, DocumentLoader loader, DocumentRepository documents,
 			DocumentFolderRepository folders, DocumentVersionRepository versions, DocumentLinkRepository links,
-			DocumentMapper mapper, IssueRepository issues, SprintRepository sprints, Clock clock) {
+			DocumentMapper mapper, IssueRepository issues, SprintRepository sprints, MeetingRepository meetings,
+			Clock clock) {
 		this.access = access;
 		this.loader = loader;
 		this.documents = documents;
@@ -68,6 +72,7 @@ public class DocumentService {
 		this.mapper = mapper;
 		this.issues = issues;
 		this.sprints = sprints;
+		this.meetings = meetings;
 		this.clock = clock;
 	}
 
@@ -181,6 +186,7 @@ public class DocumentService {
 		boolean found = switch (request.targetType()) {
 			case ISSUE -> issues.findById(request.targetId()).filter((i) -> i.getProjectId().equals(projectId)).isPresent();
 			case SPRINT -> sprints.findById(request.targetId()).filter((s) -> s.getProjectId().equals(projectId)).isPresent();
+			case MEETING -> meetings.findById(request.targetId()).filter((m) -> m.getProjectId().equals(projectId)).isPresent();
 		};
 		if (!found) {
 			throw ApiException.notFound("LINK_TARGET_NOT_FOUND", "Target not found in this project");

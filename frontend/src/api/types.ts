@@ -96,6 +96,7 @@ export type ProjectPermission =
   | 'EDIT_ISSUES'
   | 'COMMENT'
   | 'EDIT_DOCUMENTS'
+  | 'MANAGE_MEETINGS'
 
 export type Project = {
   id: string
@@ -414,7 +415,9 @@ export type DocumentAttachment = {
   createdAt: string
 }
 
-export type DocumentLink = { targetType: 'ISSUE' | 'SPRINT'; targetId: string; label: string; detail: string }
+export type LinkTargetType = 'ISSUE' | 'SPRINT' | 'MEETING'
+
+export type DocumentLink = { targetType: LinkTargetType; targetId: string; label: string; detail: string }
 
 export type DocumentDetail = {
   id: string
@@ -451,4 +454,90 @@ export type DocumentVersionDetail = {
   note: string | null
   author: UserRef | null
   createdAt: string
+}
+
+// ---- Meetings and calendar (M8) ----
+
+export type MeetingType =
+  | 'PROJECT_KICKOFF'
+  | 'SPRINT_PLANNING'
+  | 'DAILY_SCRUM'
+  | 'BACKLOG_REFINEMENT'
+  | 'SPRINT_REVIEW'
+  | 'SPRINT_RETROSPECTIVE'
+  | 'GENERAL'
+  | 'TECHNICAL'
+
+export type MeetingStatus = 'SCHEDULED' | 'CANCELLED'
+export type AttendeeResponse = 'INVITED' | 'ACCEPTED' | 'TENTATIVE' | 'DECLINED'
+
+export type MeetingTemplate = {
+  type: MeetingType
+  name: string
+  description: string
+  durationMinutes: number
+  agenda: string
+  minutes: string
+}
+
+export type MeetingSummary = {
+  id: string
+  title: string
+  type: MeetingType
+  status: MeetingStatus
+  startsAt: string
+  endsAt: string
+  location: string | null
+  onlineLink: string | null
+  sprint: { id: string; name: string } | null
+  organizer: UserRef | null
+  attendeeCount: number
+  openActionItems: number
+  myResponse: AttendeeResponse | null
+}
+
+export type ActionItem = {
+  id: string
+  text: string
+  assignee: UserRef | null
+  dueDate: string | null
+  status: 'OPEN' | 'DONE'
+  issue: { id: string; key: string; title: string } | null
+}
+
+export type MeetingDetail = {
+  id: string
+  projectId: string
+  title: string
+  type: MeetingType
+  status: MeetingStatus
+  startsAt: string
+  endsAt: string
+  location: string | null
+  onlineLink: string | null
+  agenda: string | null
+  description: string | null
+  minutes: string | null
+  minutesRevision: number
+  reminderMinutes: number | null
+  sprint: { id: string; name: string } | null
+  organizer: UserRef | null
+  createdBy: UserRef | null
+  attendees: { user: UserRef | null; response: AttendeeResponse }[]
+  actionItems: ActionItem[]
+  myResponse: AttendeeResponse | null
+  canEdit: boolean
+  canTakeNotes: boolean
+}
+
+export type CalendarEvent = {
+  kind: 'MEETING' | 'SPRINT' | 'DUE_DATE'
+  id: string
+  title: string
+  startsAt: string | null
+  endsAt: string | null
+  startDate: string | null
+  endDate: string | null
+  status: string
+  detail: string | null
 }

@@ -145,10 +145,10 @@ class ProjectTests {
 		Session dev = member(f, project, "DEVELOPER");
 		Session stakeholder = member(f, project, "STAKEHOLDER");
 
-		permissions(f.owner(), project).andExpect(jsonPath("$.permissions.length()").value(8));
+		permissions(f.owner(), project).andExpect(jsonPath("$.permissions.length()").value(9));
 		permissions(po, project).andExpect(jsonPath("$.permissions", containsInAnyOrder("VIEW", "MANAGE_BACKLOG", "MANAGE_SPRINTS",
-				"EDIT_ISSUES", "EDIT_DOCUMENTS", "COMMENT")));
-		permissions(dev, project).andExpect(jsonPath("$.permissions", containsInAnyOrder("VIEW", "EDIT_ISSUES", "EDIT_DOCUMENTS", "COMMENT")));
+				"EDIT_ISSUES", "EDIT_DOCUMENTS", "MANAGE_MEETINGS", "COMMENT")));
+		permissions(dev, project).andExpect(jsonPath("$.permissions", containsInAnyOrder("VIEW", "EDIT_ISSUES", "EDIT_DOCUMENTS", "MANAGE_MEETINGS", "COMMENT")));
 		permissions(stakeholder, project).andExpect(jsonPath("$.permissions", containsInAnyOrder("VIEW", "COMMENT")));
 
 		for (Session s : new Session[] { po, dev, stakeholder }) {
@@ -249,7 +249,7 @@ class ProjectTests {
 		Session admin = TestApi.joinWorkspace(mockMvc, f.owner(), f.workspace(), "ADMIN");
 
 		for (Session s : new Session[] { lead, admin }) {
-			permissions(s, project).andExpect(jsonPath("$.permissions.length()").value(8));
+			permissions(s, project).andExpect(jsonPath("$.permissions.length()").value(9));
 			update(s, project).andExpect(status().isOk());
 		}
 		addMember(lead, project, f.member().userId(), "QA_ENGINEER").andExpect(status().isNoContent());

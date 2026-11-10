@@ -22,6 +22,8 @@ public enum ProjectPermission {
 	/** Comment on issues and documents. */
 	COMMENT,
 	/** Create and edit documents, folders, attachments and links; restore versions. */
-	EDIT_DOCUMENTS
+	EDIT_DOCUMENTS,
+	/** Schedule meetings, take minutes and manage action items. */
+	MANAGE_MEETINGS
 
 }

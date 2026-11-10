@@ -1,10 +1,10 @@
 import { Link } from 'react-router'
-import type { DocumentSummary, Page } from '../../api/types'
+import type { DocumentSummary, LinkTargetType, Page } from '../../api/types'
 import { useResource } from '../../api/useResource'
 import { DOCUMENT_TYPE_LABELS } from './labels'
 
 /** Documents attached to an issue or sprint; renders nothing when there are none. */
-export function RelatedDocuments({ projectId, targetType, targetId }: { projectId: string; targetType: 'ISSUE' | 'SPRINT'; targetId: string }) {
+export function RelatedDocuments({ projectId, targetType, targetId }: { projectId: string; targetType: LinkTargetType; targetId: string }) {
   const { data } = useResource<Page<DocumentSummary>>(
     `/api/projects/${projectId}/documents?linkedType=${targetType}&linkedId=${targetId}&size=20`,
   )

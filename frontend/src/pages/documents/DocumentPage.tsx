@@ -10,6 +10,8 @@ import type {
   DocumentVersionDetail,
   DocumentVersionSummary,
   Issue,
+  LinkTargetType,
+  MeetingSummary,
   Page,
   Sprint,
 } from '../../api/types'
@@ -24,6 +26,13 @@ import { diffLines } from './lineDiff'
 type Draft = { title: string; type: DocumentType; folderId: string; content: string; note: string; baseVersion: number }
 
 const MAX_FILE = 10 * 1024 * 1024
+
+const LINK_LABEL: Record<LinkTargetType, string> = { ISSUE: 'Công việc', SPRINT: 'Sprint', MEETING: 'Cuộc họp' }
+const LINK_HREF: Record<LinkTargetType, (projectId: string, id: string) => string> = {
+  ISSUE: (_, id) => `/issues/${id}`,
+  SPRINT: (projectId, id) => `/projects/${projectId}/sprints/${id}`,
+  MEETING: (projectId, id) => `/projects/${projectId}/meetings/${id}`,
+}
 
 export function DocumentPage() {
   const { documentId } = useParams()
@@ -495,7 +504,7 @@ function Attachments({ doc, onChanged }: { doc: DocumentDetail; onChanged: () =>
 
 function Links({ doc, projectId, onChanged }: { doc: DocumentDetail; projectId: string; onChanged: () => void }) {
   const [adding, setAdding] = useState(false)
-  const [kind, setKind] = useState<'ISSUE' | 'SPRINT'>('ISSUE')
+  const [kind, setKind] = useState<LinkTargetType>('ISSUE')
   const [error, setError] = useState<string | null>(null)
 
   async function change(action: () => Promise<unknown>) {
@@ -508,7 +517,7 @@ function Links({ doc, projectId, onChanged }: { doc: DocumentDetail; projectId: 
     }
   }
 
-  const link = (type: 'ISSUE' | 'SPRINT', targetId: string) =>
+  const link = (type: LinkTargetType, targetId: string) =>
     change(async () => {
       await api(`/api/documents/${doc.id}/links`, { method: 'POST', body: { targetType: type, targetId } })
       setAdding(false)
@@ -530,8 +539,8 @@ function Links({ doc, projectId, onChanged }: { doc: DocumentDetail; projectId: 
         {doc.links.map((l) => (
           <li key={`${l.targetType}-${l.targetId}`} className="row">
             <div>
-              <Link to={l.targetType === 'ISSUE' ? `/issues/${l.targetId}` : `/projects/${projectId}/sprints/${l.targetId}`}>{l.label}</Link>
-              <p className="muted small">{l.targetType === 'ISSUE' ? 'Công việc' : 'Sprint'}</p>
+              <Link to={LINK_HREF[l.targetType](projectId, l.targetId)}>{l.label}</Link>
+              <p className="muted small">{LINK_LABEL[l.targetType]}</p>
             </div>
             {doc.canEdit && (
               <button type="button" className="button-secondary button-small" onClick={() => change(() => api(`/api/documents/${doc.id}/links/${l.targetType}/${l.targetId}`, { method: 'DELETE' }))}>
@@ -550,11 +559,16 @@ function Links({ doc, projectId, onChanged }: { doc: DocumentDetail; projectId: 
             <button type="button" className={kind === 'SPRINT' ? 'on' : ''} onClick={() => setKind('SPRINT')}>
               Sprint
             </button>
+            <button type="button" className={kind === 'MEETING' ? 'on' : ''} onClick={() => setKind('MEETING')}>
+              Cuộc họp
+            </button>
           </div>
           {kind === 'ISSUE' ? (
             <IssuePicker projectId={projectId} linked={linked} onPick={(id) => link('ISSUE', id)} />
-          ) : (
+          ) : kind === 'SPRINT' ? (
             <SprintPicker projectId={projectId} linked={linked} onPick={(id) => link('SPRINT', id)} />
+          ) : (
+            <MeetingPicker projectId={projectId} linked={linked} onPick={(id) => link('MEETING', id)} />
           )}
         </div>
       )}
@@ -592,6 +606,29 @@ function IssueResults({ projectId, q, linked, onPick }: { projectId: string; q: 
               <strong>{i.key}</strong> {i.title}
             </span>
             <button type="button" className="button-small" onClick={() => onPick(i.id)}>
+              Gắn
+            </button>
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}
+
+function MeetingPicker({ projectId, linked, onPick }: { projectId: string; linked: Set<string>; onPick: (id: string) => void }) {
+  const { data, error } = useResource<MeetingSummary[]>(`/api/projects/${projectId}/meetings?newestFirst=true`)
+  const items = data?.filter((m) => !linked.has(m.id))
+  return (
+    <>
+      <Alert>{error}</Alert>
+      {items?.length === 0 && <p className="muted small">Không còn cuộc họp nào để gắn.</p>}
+      <ul className="plain-list picker-list">
+        {items?.map((m) => (
+          <li key={m.id} className="row">
+            <span>
+              {m.title} <span className="muted small">{formatWhen(m.startsAt)}</span>
+            </span>
+            <button type="button" className="button-small" onClick={() => onPick(m.id)}>
               Gắn
             </button>
           </li>

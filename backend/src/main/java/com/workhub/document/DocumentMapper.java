@@ -20,6 +20,7 @@ import com.workhub.issue.Issue;
 import com.workhub.issue.IssueMapper;
 import com.workhub.issue.IssueRepository;
 import com.workhub.issue.IssueResponses.UserRef;
+import com.workhub.meeting.MeetingRepository;
 import com.workhub.sprint.Sprint;
 import com.workhub.sprint.SprintRepository;
 import com.workhub.user.User;
@@ -45,13 +46,17 @@ class DocumentMapper {
 
 	private final SprintRepository sprints;
 
+	private final MeetingRepository meetings;
+
 	DocumentMapper(UserRepository users, DocumentAttachmentRepository attachments, DocumentLinkRepository links,
-			IssueRepository issues, SprintRepository sprints) {
+			IssueRepository issues, SprintRepository sprints,
+			MeetingRepository meetings) {
 		this.users = users;
 		this.attachments = attachments;
 		this.links = links;
 		this.issues = issues;
 		this.sprints = sprints;
+		this.meetings = meetings;
 	}
 
 	List<DocumentSummary> summaries(List<Document> documents) {
@@ -108,6 +113,9 @@ class DocumentMapper {
 		Map<UUID, Sprint> sprintById = new HashMap<>();
 		sprints.findAllById(all.stream().filter((l) -> l.getTargetType() == LinkTargetType.SPRINT).map(DocumentLink::getTargetId).toList())
 			.forEach((s) -> sprintById.put(s.getId(), s));
+		Map<UUID, com.workhub.meeting.Meeting> meetingById = new HashMap<>();
+		meetings.findAllById(all.stream().filter((l) -> l.getTargetType() == LinkTargetType.MEETING).map(DocumentLink::getTargetId).toList())
+			.forEach((m) -> meetingById.put(m.getId(), m));
 		List<LinkResponse> out = new ArrayList<>();
 		for (DocumentLink link : all) {
 			// Targets that were deleted since are simply not shown.
@@ -116,6 +124,13 @@ class DocumentMapper {
 				if (issue != null) {
 					out.add(new LinkResponse(LinkTargetType.ISSUE, issue.getId(),
 							projectKey + "-" + issue.getNumber() + " " + issue.getTitle(), issue.getStatus().name()));
+				}
+			}
+			else if (link.getTargetType() == LinkTargetType.MEETING) {
+				var meeting = meetingById.get(link.getTargetId());
+				if (meeting != null) {
+					out.add(new LinkResponse(LinkTargetType.MEETING, meeting.getId(), meeting.getTitle(),
+							meeting.getStatus().name()));
 				}
 			}
 			else {

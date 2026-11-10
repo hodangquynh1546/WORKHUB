@@ -1,8 +1,8 @@
 package com.workhub.document;
 
-/** What a document can be attached to. Meetings are added with the meetings module. */
+/** What a document can be attached to. */
 public enum LinkTargetType {
 
-	ISSUE, SPRINT
+	ISSUE, SPRINT, MEETING
 
 }
