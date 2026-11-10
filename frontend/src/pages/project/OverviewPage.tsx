@@ -1,8 +1,24 @@
-import type { ProjectMember, ProjectRole } from '../../api/types'
+import { useState } from 'react'
+import type { ProjectMember, ProjectRole, ProjectStats } from '../../api/types'
 import { useResource } from '../../api/useResource'
 import { Alert } from '../../components/Form'
 import { formatDay, METHODOLOGY_LABELS, PROJECT_ROLE_LABELS, PROJECT_ROLES, PROJECT_STATUS_LABELS, scheduleProgress } from '../roles'
 import { useProject } from './projectContext'
+
+/** Today's date in the browser's timezone as yyyy-mm-dd. */
+function localIsoDate(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+function Stat({ label, value, warn = false }: { label: string; value: number | string; warn?: boolean }) {
+  return (
+    <div className={`stat ${warn ? 'stat-warn' : ''}`}>
+      <strong>{value}</strong>
+      <span className="muted small">{label}</span>
+    </div>
+  )
+}
 
 const LEADERSHIP: ProjectRole[] = ['PROJECT_MANAGER', 'PRODUCT_OWNER', 'SCRUM_MASTER']
 
@@ -10,6 +26,9 @@ export function OverviewPage() {
   const { project } = useProject()
   const { data: members, error } = useResource<ProjectMember[]>(`/api/projects/${project.id}/members`)
   const progress = scheduleProgress(project.startDate, project.endDate)
+  // Overdue is date-based, so let the browser say which day it is (fixed for the life of the page).
+  const [todayIso] = useState(localIsoDate)
+  const { data: stats } = useResource<ProjectStats>(`/api/projects/${project.id}/stats?today=${todayIso}`)
 
   return (
     <div className="two-column">
@@ -31,6 +50,23 @@ export function OverviewPage() {
             <dt>Kết thúc dự kiến</dt>
             <dd>{formatDay(project.endDate)}</dd>
           </dl>
+        </section>
+
+        <section className="card stack">
+          <h2>Công việc</h2>
+          {stats && (
+            <>
+              <div className="stat-grid">
+                <Stat label="Tổng số" value={stats.total} />
+                <Stat label="Chưa bắt đầu" value={stats.toDo} />
+                <Stat label="Đang thực hiện" value={stats.inProgress} />
+                <Stat label="Hoàn thành" value={stats.done} />
+                <Stat label="Quá hạn" value={stats.overdue} warn={stats.overdue > 0} />
+                <Stat label="Story Points xong" value={`${stats.donePoints}/${stats.totalPoints}`} />
+              </div>
+              <p className="muted small">Không tính Epic. Quá hạn = có hạn đã qua mà chưa hoàn thành.</p>
+            </>
+          )}
         </section>
 
         <section className="card stack">

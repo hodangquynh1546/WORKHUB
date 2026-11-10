@@ -16,6 +16,7 @@ import com.workhub.access.TeamPermission;
 import com.workhub.access.WorkspaceAccess;
 import com.workhub.common.ApiException;
 import com.workhub.common.Strings;
+import com.workhub.issue.IssueRepository;
 import com.workhub.team.Team;
 import com.workhub.team.TeamRepository;
 import com.workhub.workspace.WorkspaceMemberRepository;
@@ -37,13 +38,16 @@ public class ProjectService {
 
 	private final WorkspaceMemberRepository workspaceMembers;
 
+	private final IssueRepository issues;
+
 	public ProjectService(AccessService access, ProjectRepository projects, ProjectMemberRepository members,
-			TeamRepository teams, WorkspaceMemberRepository workspaceMembers) {
+			TeamRepository teams, WorkspaceMemberRepository workspaceMembers, IssueRepository issues) {
 		this.access = access;
 		this.projects = projects;
 		this.members = members;
 		this.teams = teams;
 		this.workspaceMembers = workspaceMembers;
+		this.issues = issues;
 	}
 
 	/** Team leads and workspace admins create projects; the creator becomes PROJECT_MANAGER. */
@@ -153,6 +157,8 @@ public class ProjectService {
 		ProjectMember member = requireMember(projectId, memberId);
 		requireNotLastManager(projectId, member);
 		members.delete(member);
+		// Work assigned to someone who left goes back to unassigned.
+		issues.unassign(projectId, memberId);
 	}
 
 	// ---- helpers ----

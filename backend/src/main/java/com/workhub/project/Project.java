@@ -60,6 +60,10 @@ public class Project {
 	@Column(name = "created_by", nullable = false, updatable = false)
 	private UUID createdBy;
 
+	/** Last issue number handed out; only ever changed by {@link ProjectRepository#incrementIssueCounter}. */
+	@Column(name = "issue_counter", nullable = false, insertable = false, updatable = false)
+	private int issueCounter;
+
 	@CreationTimestamp
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;

@@ -582,3 +582,269 @@ select {
   display: flex;
   flex-direction: column;
 }
+
+/* M4: issues and backlog */
+textarea {
+  font: inherit;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  resize: vertical;
+}
+
+textarea:focus,
+select:focus,
+input[type='search']:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+input[type='search'],
+.quick-create input,
+.filters input {
+  font: inherit;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.prewrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+}
+
+.quick-create {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.quick-create input {
+  flex: 1 1 240px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filters select,
+.filters input[type='search'] {
+  max-width: 190px;
+}
+
+.filters input[type='search'] {
+  flex: 1 1 200px;
+  max-width: 280px;
+}
+
+.group-title {
+  margin: 1rem 0 0.25rem;
+  color: var(--muted);
+}
+
+.issue-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.issue-row.drop-target {
+  border-top: 2px solid var(--accent);
+}
+
+.issue-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.issue-title a {
+  color: var(--text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.issue-title a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.issue-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.75rem;
+}
+
+.drag-handle {
+  cursor: grab;
+  color: var(--muted);
+  user-select: none;
+  padding: 0 0.2rem;
+}
+
+.drop-end {
+  height: 14px;
+}
+
+.drop-end.drop-target {
+  border-top: 2px solid var(--accent);
+}
+
+.points {
+  min-width: 1.6rem;
+  text-align: center;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--border);
+  font-size: 0.85rem;
+}
+
+.type-badge {
+  font-size: 0.72rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.type-bug {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.type-epic {
+  background: #efe5ff;
+  color: #6d3fc0;
+}
+
+.type-sub_task {
+  background: var(--border);
+  color: var(--muted);
+}
+
+.priority {
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.priority-critical {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.priority-high {
+  color: #c2570c;
+  font-weight: 600;
+}
+
+.priority-low {
+  color: var(--muted);
+}
+
+.status-select,
+.assignee-select {
+  max-width: 130px;
+  font-size: 0.85rem;
+}
+
+.status-in_progress,
+.status-code_review,
+.status-testing {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.status-done {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.avatar-empty {
+  background: transparent;
+  border: 1px dashed var(--border);
+}
+
+.label-chip {
+  display: inline-block;
+  margin-right: 0.3rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.issue-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.issue-header h1 {
+  margin: 0.25rem 0 0;
+}
+
+.comment {
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.comment p {
+  margin: 0 0 0.3rem;
+}
+
+.history-item {
+  padding: 0.3rem 0;
+}
+
+.struck {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.stat strong {
+  font-size: 1.4rem;
+}
+
+.stat-warn strong {
+  color: var(--danger);
+}

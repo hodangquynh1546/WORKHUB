@@ -2,12 +2,14 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
 import { AuthProvider } from './auth/AuthProvider'
 import { RedirectIfAuthenticated, RequireAuth } from './components/Guards'
 import { Layout } from './components/Layout'
+import { IssuePage } from './pages/IssuePage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { InvitationPage } from './pages/InvitationPage'
 import { LoginPage } from './pages/LoginPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
+import { BacklogPage } from './pages/project/BacklogPage'
 import { MembersPage } from './pages/project/MembersPage'
 import { OverviewPage } from './pages/project/OverviewPage'
 import { ProjectLayout } from './pages/project/ProjectLayout'
@@ -36,8 +38,10 @@ export default function App() {
               <Route path="/workspaces" element={<WorkspacesPage />} />
               <Route path="/workspaces/:workspaceId" element={<WorkspacePage />} />
               <Route path="/teams/:teamId" element={<TeamPage />} />
+              <Route path="/issues/:issueId" element={<IssuePage />} />
               <Route path="/projects/:projectId" element={<ProjectLayout />}>
                 <Route index element={<OverviewPage />} />
+                <Route path="backlog" element={<BacklogPage />} />
                 <Route path="members" element={<MembersPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>

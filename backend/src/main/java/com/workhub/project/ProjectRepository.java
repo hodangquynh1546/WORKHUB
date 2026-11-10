@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -18,6 +19,18 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
 				(select tm.role from TeamMember tm where tm.teamId = p.teamId and tm.userId = :userId))
 			from Project p join Team t on t.id = p.teamId
 			""";
+
+	/**
+	 * Atomically takes the next issue number. The UPDATE locks the project row until the transaction ends, so
+	 * concurrent creators queue up here; read the value back with {@link #readIssueCounter}. Clears the
+	 * persistence context, so call it before loading entities you intend to modify.
+	 */
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("update Project p set p.issueCounter = p.issueCounter + 1 where p.id = :id")
+	int incrementIssueCounter(@Param("id") UUID id);
+
+	@Query("select p.issueCounter from Project p where p.id = :id")
+	int readIssueCounter(@Param("id") UUID id);
 
 	boolean existsByWorkspaceIdAndProjectKey(UUID workspaceId, String projectKey);
 

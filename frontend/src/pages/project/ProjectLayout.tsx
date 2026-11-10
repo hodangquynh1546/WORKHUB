@@ -6,7 +6,7 @@ import { METHODOLOGY_LABELS, PROJECT_STATUS_LABELS } from '../roles'
 import type { ProjectContext } from './projectContext'
 
 /** Areas that arrive in later milestones; shown so the project's shape is visible. */
-const COMING_SOON = ['Backlog', 'Sprint', 'Board', 'Tài liệu', 'Cuộc họp', 'Lịch', 'Báo cáo']
+const COMING_SOON = ['Sprint', 'Board', 'Tài liệu', 'Cuộc họp', 'Lịch', 'Báo cáo']
 
 export function ProjectLayout() {
   const { projectId } = useParams()
@@ -45,6 +45,7 @@ export function ProjectLayout() {
         <NavLink to="" end>
           Tổng quan
         </NavLink>
+        <NavLink to="backlog">Backlog</NavLink>
         <NavLink to="members">Thành viên</NavLink>
         {canUpdate && <NavLink to="settings">Cài đặt</NavLink>}
         {COMING_SOON.map((label) => (

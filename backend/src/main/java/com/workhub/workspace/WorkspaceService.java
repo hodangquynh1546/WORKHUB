@@ -8,6 +8,7 @@ import com.workhub.access.WorkspaceAccess;
 import com.workhub.access.WorkspacePermission;
 import com.workhub.common.ApiException;
 import com.workhub.common.Strings;
+import com.workhub.issue.IssueRepository;
 import com.workhub.project.ProjectMemberRepository;
 import com.workhub.team.TeamMemberRepository;
 
@@ -29,13 +30,16 @@ public class WorkspaceService {
 
 	private final ProjectMemberRepository projectMembers;
 
+	private final IssueRepository issues;
+
 	public WorkspaceService(AccessService access, WorkspaceRepository workspaces, WorkspaceMemberRepository members,
-			TeamMemberRepository teamMembers, ProjectMemberRepository projectMembers) {
+			TeamMemberRepository teamMembers, ProjectMemberRepository projectMembers, IssueRepository issues) {
 		this.access = access;
 		this.workspaces = workspaces;
 		this.members = members;
 		this.teamMembers = teamMembers;
 		this.projectMembers = projectMembers;
+		this.issues = issues;
 	}
 
 	/** The creator becomes the workspace owner. */
@@ -104,6 +108,7 @@ public class WorkspaceService {
 		members.delete(member);
 		teamMembers.deleteAllInWorkspace(workspaceId, memberId);
 		projectMembers.deleteAllInWorkspace(workspaceId, memberId);
+		issues.unassignAllInWorkspace(workspaceId, memberId);
 	}
 
 	private WorkspaceMember requireMember(UUID workspaceId, UUID memberId) {

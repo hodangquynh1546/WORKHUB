@@ -126,3 +126,79 @@ export type ProjectMember = {
   role: ProjectRole
   joinedAt: string
 }
+
+export type IssueType = 'EPIC' | 'FEATURE' | 'USER_STORY' | 'TASK' | 'SUB_TASK' | 'BUG' | 'SPIKE'
+export type IssueStatus = 'TO_DO' | 'IN_PROGRESS' | 'CODE_REVIEW' | 'TESTING' | 'DONE'
+export type IssuePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+export type RefinementStatus = 'NEW' | 'REFINING' | 'READY'
+
+export type UserRef = { id: string; fullName: string; avatarUrl: string | null }
+export type IssueRef = { id: string; key: string; title: string; type: IssueType }
+
+export type Issue = {
+  id: string
+  projectId: string
+  /** Such as ECOM-12. */
+  key: string
+  number: number
+  type: IssueType
+  title: string
+  /** Only present in detail views. */
+  description: string | null
+  priority: IssuePriority
+  status: IssueStatus
+  refinement: RefinementStatus
+  reporter: UserRef
+  assignee: UserRef | null
+  parent: IssueRef | null
+  /** Nearest Epic above this issue, at any depth. */
+  epic: IssueRef | null
+  startDate: string | null
+  dueDate: string | null
+  storyPoints: number | null
+  originalEstimateMinutes: number | null
+  remainingEstimateMinutes: number | null
+  /** Only present in detail views. */
+  acceptanceCriteria: string | null
+  labels: string[]
+  rank: number
+  startedAt: string | null
+  doneAt: string | null
+  createdAt: string
+  updatedAt: string
+  childCount: number
+  childDoneCount: number
+}
+
+export type ChecklistItem = { id: string; text: string; done: boolean }
+
+export type IssueDetail = {
+  issue: Issue
+  children: Issue[]
+  checklist: ChecklistItem[]
+  permissions: ProjectPermission[]
+}
+
+export type IssueComment = { id: string; author: UserRef; body: string; createdAt: string; updatedAt: string }
+
+export type IssueActivity = {
+  id: string
+  actor: UserRef
+  kind: 'CREATED' | 'CHANGED'
+  field: string | null
+  oldValue: string | null
+  newValue: string | null
+  createdAt: string
+}
+
+export type ProjectStats = {
+  total: number
+  toDo: number
+  inProgress: number
+  done: number
+  overdue: number
+  totalPoints: number
+  donePoints: number
+}
+
+export type Page<T> = { items: T[]; page: number; size: number; total: number; totalPages: number }
