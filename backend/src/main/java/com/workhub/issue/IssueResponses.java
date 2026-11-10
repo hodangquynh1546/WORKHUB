@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.workhub.access.ProjectPermission;
+import com.workhub.sprint.SprintStatus;
 
 /** Response shapes of the issue API. */
 public final class IssueResponses {
@@ -20,6 +21,9 @@ public final class IssueResponses {
 	public record IssueRef(UUID id, String key, String title, IssueType type) {
 	}
 
+	public record SprintRef(UUID id, String name, SprintStatus status) {
+	}
+
 	/**
 	 * {@code description} and {@code acceptanceCriteria} are only filled in detail views (null in lists).
 	 * {@code epic} is the nearest EPIC ancestor; {@code childCount}/{@code childDoneCount} count direct children.
@@ -30,7 +34,7 @@ public final class IssueResponses {
 			LocalDate dueDate, Integer storyPoints, Integer originalEstimateMinutes,
 			Integer remainingEstimateMinutes, String acceptanceCriteria, List<String> labels, long rank,
 			Instant startedAt, Instant doneAt, Instant createdAt, Instant updatedAt, int childCount,
-			int childDoneCount) {
+			int childDoneCount, boolean blocked, String blockedReason, SprintRef sprint) {
 	}
 
 	public record ChecklistItemResponse(UUID id, String text, boolean done) {

@@ -48,6 +48,10 @@ public final class IssueRequests {
 	public record Rank(UUID afterIssueId) {
 	}
 
+	/** {@code reason} is only kept while blocked. */
+	public record Block(boolean blocked, @Size(max = 500) String reason) {
+	}
+
 	public record CommentBody(@NotBlank @Size(max = 5000) String body) {
 	}
 

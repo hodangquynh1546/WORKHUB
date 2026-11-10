@@ -17,6 +17,7 @@ import type {
   RefinementStatus,
 } from '../api/types'
 import { useResource } from '../api/useResource'
+import { useWorkflow } from '../api/useWorkflow'
 import { useAuth } from '../auth/AuthContext'
 import { Alert, Field, TextArea } from '../components/Form'
 import { PriorityBadge, TypeBadge } from '../components/IssueBits'
@@ -28,13 +29,11 @@ import {
   historyValue,
   hoursToMinutes,
   ISSUE_PRIORITIES,
-  ISSUE_STATUSES,
   ISSUE_TYPES,
   minutesToHours,
   PRIORITY_LABELS,
   REFINEMENT_LABELS,
   REFINEMENTS,
-  STATUS_LABELS,
   TYPE_LABELS,
 } from './issueLabels'
 
@@ -67,6 +66,7 @@ function IssueView({ detail, project, reload }: { detail: IssueDetail; project: 
   const [editing, setEditing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { data: members } = useResource<ProjectMember[]>(`/api/projects/${project.id}/members`)
+  const workflow = useWorkflow(project.id)
   const active = project.status !== 'ARCHIVED'
   const canEdit = permissions.includes('EDIT_ISSUES') && active
   const canDelete = permissions.includes('MANAGE_BACKLOG') && active
@@ -116,6 +116,19 @@ function IssueView({ detail, project, reload }: { detail: IssueDetail; project: 
               {editing ? 'Đóng' : 'Chỉnh sửa'}
             </button>
           )}
+          {canEdit && (
+            <button
+              type="button"
+              className="button-secondary"
+              onClick={() => {
+                if (issue.blocked) return run(() => api(`/api/issues/${issue.id}/blocked`, { method: 'PUT', body: { blocked: false } }))
+                const reason = window.prompt('Lý do bị chặn (không bắt buộc):')
+                if (reason !== null) run(() => api(`/api/issues/${issue.id}/blocked`, { method: 'PUT', body: { blocked: true, reason } }))
+              }}
+            >
+              {issue.blocked ? 'Bỏ chặn' : 'Đánh dấu Blocked'}
+            </button>
+          )}
           {canDelete && (
             <button type="button" className="button-danger" onClick={remove}>
               Xóa
@@ -150,7 +163,7 @@ function IssueView({ detail, project, reload }: { detail: IssueDetail; project: 
           )}
 
           {(canHaveChildren || children.length > 0) && (
-            <ChildrenSection issue={issue} childIssues={children} canEdit={canEdit} onCreated={reload} />
+            <ChildrenSection issue={issue} childIssues={children} names={workflow.names} canEdit={canEdit} onCreated={reload} />
           )}
           <Checklist issueId={issue.id} items={checklist} canEdit={canEdit} onChanged={reload} />
           <Comments issueId={issue.id} canComment={permissions.includes('COMMENT') && active} canModerate={permissions.includes('UPDATE_PROJECT')} />
@@ -164,15 +177,16 @@ function IssueView({ detail, project, reload }: { detail: IssueDetail; project: 
               <dd>
                 {canEdit ? (
                   <select value={issue.status} aria-label="Trạng thái" onChange={(e) => run(() => api(`/api/issues/${issue.id}/status`, { method: 'PUT', body: { status: e.target.value as IssueStatus } }))}>
-                    {ISSUE_STATUSES.map((s) => (
+                    {workflow.enabled.map((s) => (
                       <option key={s} value={s}>
-                        {STATUS_LABELS[s]}
+                        {workflow.names[s]}
                       </option>
                     ))}
                   </select>
                 ) : (
-                  STATUS_LABELS[issue.status]
+                  workflow.names[issue.status]
                 )}
+                {issue.blocked && <span className="blocked-chip" title={issue.blockedReason ?? ''}>Blocked</span>}
               </dd>
               <dt>Người phụ trách</dt>
               <dd>
@@ -189,6 +203,8 @@ function IssueView({ detail, project, reload }: { detail: IssueDetail; project: 
                   (issue.assignee?.fullName ?? 'Chưa giao')
                 )}
               </dd>
+              <dt>Sprint</dt>
+              <dd>{issue.sprint ? <Link to={`/projects/${project.id}/sprints/${issue.sprint.id}`}>{issue.sprint.name}</Link> : 'Chưa vào Sprint'}</dd>
               <dt>Người báo cáo</dt>
               <dd>{issue.reporter.fullName}</dd>
               <dt>Độ ưu tiên</dt>
@@ -217,7 +233,8 @@ function IssueView({ detail, project, reload }: { detail: IssueDetail; project: 
               <dd>{formatDateTime(issue.updatedAt)}</dd>
             </dl>
           </section>
-          <History issueId={issue.id} version={issue.updatedAt} />
+          <History issueId={issue.id} version={issue.updatedAt} names={workflow.names} />
+
         </div>
       </div>
     </>
@@ -348,7 +365,7 @@ function EditForm({ issue, onSaved }: { issue: Issue; onSaved: () => void }) {
   )
 }
 
-function ChildrenSection({ issue, childIssues, canEdit, onCreated }: { issue: Issue; childIssues: Issue[]; canEdit: boolean; onCreated: () => void }) {
+function ChildrenSection({ issue, childIssues, names, canEdit, onCreated }: { issue: Issue; childIssues: Issue[]; names: Record<IssueStatus, string>; canEdit: boolean; onCreated: () => void }) {
   const childTypes = ISSUE_TYPES.filter((t) => ALLOWED_PARENTS[t].includes(issue.type))
   const [type, setType] = useState<IssueType>(childTypes[0])
   const [title, setTitle] = useState('')
@@ -383,7 +400,7 @@ function ChildrenSection({ issue, childIssues, canEdit, onCreated }: { issue: Is
             <div>
               <span className="project-key">{c.key}</span> <TypeBadge type={c.type} /> <Link to={`/issues/${c.id}`}>{c.title}</Link>
             </div>
-            <span className={`badge status-${c.status.toLowerCase()}`}>{STATUS_LABELS[c.status]}</span>
+            <span className={`badge status-${c.status.toLowerCase()}`}>{names[c.status]}</span>
           </li>
         ))}
       </ul>
@@ -560,7 +577,7 @@ function Comments({ issueId, canComment, canModerate }: { issueId: string; canCo
 }
 
 /** `version` (the issue's updatedAt) changes whenever the issue does, which reloads the list. */
-function History({ issueId, version }: { issueId: string; version: string }) {
+function History({ issueId, version, names }: { issueId: string; version: string; names: Record<IssueStatus, string> }) {
   const { data: entries, error } = useResource<IssueActivity[]>(`/api/issues/${issueId}/activity?v=${encodeURIComponent(version)}`)
   return (
     <section className="card stack">
@@ -575,7 +592,7 @@ function History({ issueId, version }: { issueId: string; version: string }) {
             ) : (
               <>
                 đã đổi {FIELD_LABELS[e.field ?? ''] ?? e.field}
-                {e.oldValue === null && e.newValue === null ? '' : ` từ “${historyValue(e.field, e.oldValue)}” sang “${historyValue(e.field, e.newValue)}”`}
+                {e.oldValue === null && e.newValue === null ? '' : ` từ “${historyValue(e.field, e.oldValue, names)}” sang “${historyValue(e.field, e.newValue, names)}”`}
               </>
             )}
             <span className="muted"> · {formatDateTime(e.createdAt)}</span>

@@ -83,3 +83,10 @@ export function scheduleProgress(startDate: string | null, endDate: string | nul
     finished: now > end,
   }
 }
+
+/** Today's date in the browser's timezone as yyyy-mm-dd. */
+export function localIsoDate(offsetDays = 0): string {
+  const date = new Date()
+  date.setDate(date.getDate() + offsetDays)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}

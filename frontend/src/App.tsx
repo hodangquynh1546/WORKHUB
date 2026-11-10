@@ -10,6 +10,9 @@ import { ProfilePage } from './pages/ProfilePage'
 import { RegisterPage } from './pages/RegisterPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { BacklogPage } from './pages/project/BacklogPage'
+import { BoardPage } from './pages/project/BoardPage'
+import { SprintPage } from './pages/project/SprintPage'
+import { SprintsPage } from './pages/project/SprintsPage'
 import { MembersPage } from './pages/project/MembersPage'
 import { OverviewPage } from './pages/project/OverviewPage'
 import { ProjectLayout } from './pages/project/ProjectLayout'
@@ -42,6 +45,9 @@ export default function App() {
               <Route path="/projects/:projectId" element={<ProjectLayout />}>
                 <Route index element={<OverviewPage />} />
                 <Route path="backlog" element={<BacklogPage />} />
+                <Route path="sprints" element={<SprintsPage />} />
+                <Route path="sprints/:sprintId" element={<SprintPage />} />
+                <Route path="board" element={<BoardPage />} />
                 <Route path="members" element={<MembersPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>

@@ -168,6 +168,10 @@ export type Issue = {
   updatedAt: string
   childCount: number
   childDoneCount: number
+  blocked: boolean
+  blockedReason: string | null
+  /** The sprint the issue is in (open sprint, or the completed one it was finished in). */
+  sprint: { id: string; name: string; status: SprintStatus } | null
 }
 
 export type ChecklistItem = { id: string; text: string; done: boolean }
@@ -202,3 +206,88 @@ export type ProjectStats = {
 }
 
 export type Page<T> = { items: T[]; page: number; size: number; total: number; totalPages: number }
+
+export type SprintStatus = 'FUTURE' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
+export type GoalOutcome = 'ACHIEVED' | 'PARTIALLY_ACHIEVED' | 'NOT_ACHIEVED'
+
+export type Sprint = {
+  id: string
+  projectId: string
+  name: string
+  goal: string | null
+  startDate: string
+  endDate: string
+  status: SprintStatus
+  facilitator: UserRef | null
+  capacityPoints: number | null
+  /** Frozen when the sprint starts. */
+  committedPoints: number | null
+  committedIssues: number | null
+  /** Set when the sprint completes (only DONE issues count). */
+  completedPoints: number | null
+  completedIssues: number | null
+  goalOutcome: GoalOutcome | null
+  goalNote: string | null
+  startedAt: string | null
+  completedAt: string | null
+  createdAt: string
+  /** The issues in the sprint right now (for a completed sprint: the finished ones). */
+  issueCount: number
+  scopePoints: number
+  doneIssueCount: number
+  donePoints: number
+}
+
+export type SprintDashboard = {
+  totalIssues: number
+  todoIssues: number
+  inProgressIssues: number
+  doneIssues: number
+  blockedIssues: number
+  overdueIssues: number
+  scopePoints: number
+  donePoints: number
+  remainingPoints: number
+  committedPoints: number | null
+  /** Scope changes after the sprint started. */
+  addedPoints: number
+  addedIssues: number
+  removedPoints: number
+  removedIssues: number
+}
+
+export type SprintDetail = {
+  sprint: Sprint
+  dashboard: SprintDashboard
+  issues: Issue[]
+  permissions: ProjectPermission[]
+}
+
+export type SprintSnapshot = {
+  date: string
+  scopePoints: number
+  donePoints: number
+  scopeIssues: number
+  todoIssues: number
+  inProgressIssues: number
+  doneIssues: number
+}
+
+export type SprintReport = {
+  sprint: Sprint
+  dashboard: SprintDashboard
+  doneIssues: Issue[]
+  unfinishedIssues: Issue[]
+  removedIssues: Issue[]
+  snapshots: SprintSnapshot[]
+}
+
+export type WorkflowEntry = { status: IssueStatus; name: string; enabled: boolean }
+
+export type Board = {
+  methodology: Methodology
+  sprint: Sprint | null
+  columns: WorkflowEntry[]
+  issues: Issue[]
+  permissions: ProjectPermission[]
+}

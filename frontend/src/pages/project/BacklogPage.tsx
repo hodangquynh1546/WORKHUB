@@ -4,16 +4,15 @@ import { api } from '../../api/client'
 import { errorMessage } from '../../api/errors'
 import type { Issue, IssueStatus, IssueType, Page, ProjectMember, RefinementStatus } from '../../api/types'
 import { useResource } from '../../api/useResource'
+import { useWorkflow } from '../../api/useWorkflow'
 import { Alert } from '../../components/Form'
 import { Assignee, PriorityBadge, TypeBadge } from '../../components/IssueBits'
 import {
   ISSUE_PRIORITIES,
-  ISSUE_STATUSES,
   ISSUE_TYPES,
   PRIORITY_LABELS,
   REFINEMENT_LABELS,
   REFINEMENTS,
-  STATUS_LABELS,
   TYPE_LABELS,
 } from '../issueLabels'
 import { useProject } from './projectContext'
@@ -32,9 +31,10 @@ type Filters = {
   label: string
   refinement: RefinementStatus | ''
   showSubtasks: boolean
+  unplanned: boolean
 }
 
-const NO_FILTERS: Filters = { q: '', type: '', status: '', priority: '', assignee: '', epicId: '', label: '', refinement: '', showSubtasks: false }
+const NO_FILTERS: Filters = { q: '', type: '', status: '', priority: '', assignee: '', epicId: '', label: '', refinement: '', showSubtasks: false, unplanned: false }
 
 function buildQuery(f: Filters): string {
   const p = new URLSearchParams({ size: String(PAGE_SIZE) })
@@ -48,6 +48,7 @@ function buildQuery(f: Filters): string {
   if (f.epicId) p.set('epicId', f.epicId)
   if (f.label) p.set('label', f.label)
   if (f.refinement) p.set('refinement', f.refinement)
+  if (f.unplanned) p.set('unplanned', 'true')
   return p.toString()
 }
 
@@ -66,6 +67,7 @@ export function BacklogPage() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [version, setVersion] = useState(0)
 
+  const workflow = useWorkflow(project.id)
   const { data: members } = useResource<ProjectMember[]>(`/api/projects/${project.id}/members`)
   const { data: labels } = useResource<string[]>(`/api/projects/${project.id}/issue-labels`)
   const { data: epics } = useResource<Page<Issue>>(`/api/projects/${project.id}/issues?type=EPIC&size=${PAGE_SIZE}`)
@@ -170,9 +172,9 @@ export function BacklogPage() {
         </select>
         <select value={filters.status} onChange={(e) => set('status', e.target.value as IssueStatus | '')} aria-label="Trạng thái">
           <option value="">Mọi trạng thái</option>
-          {ISSUE_STATUSES.map((s) => (
+          {workflow.enabled.map((s) => (
             <option key={s} value={s}>
-              {STATUS_LABELS[s]}
+              {workflow.names[s]}
             </option>
           ))}
         </select>
@@ -218,6 +220,9 @@ export function BacklogPage() {
           ))}
         </select>
         <label className="inline-check">
+          <input type="checkbox" checked={filters.unplanned} onChange={(e) => set('unplanned', e.target.checked)} /> Chưa vào Sprint
+        </label>
+        <label className="inline-check">
           <input type="checkbox" checked={filters.showSubtasks} onChange={(e) => set('showSubtasks', e.target.checked)} /> Hiện Sub-task
         </label>
         {filtered && (
@@ -242,6 +247,7 @@ export function BacklogPage() {
                 key={issue.id}
                 issue={issue}
                 members={members ?? []}
+                workflow={workflow}
                 canEdit={canEdit}
                 canDrag={canDrag}
                 onStatus={changeStatus}
@@ -260,6 +266,7 @@ export function BacklogPage() {
 function IssueRow({
   issue,
   members,
+  workflow,
   canEdit,
   canDrag,
   onStatus,
@@ -268,6 +275,7 @@ function IssueRow({
 }: {
   issue: Issue
   members: ProjectMember[]
+  workflow: ReturnType<typeof useWorkflow>
   canEdit: boolean
   canDrag: boolean
   onStatus: (issue: Issue, status: IssueStatus) => void
@@ -308,6 +316,8 @@ function IssueRow({
           <Link to={`/issues/${issue.id}`}>{issue.title}</Link>
         </div>
         <div className="issue-meta muted small">
+          {issue.blocked && <span className="blocked-chip" title={issue.blockedReason ?? ''}>Blocked</span>}
+          {issue.sprint && issue.sprint.status !== 'COMPLETED' && <span className="sprint-chip">{issue.sprint.name}</span>}
           {issue.epic && issue.type !== 'EPIC' && <span>Epic: {issue.epic.title}</span>}
           {issue.parent && issue.parent.id !== issue.epic?.id && <span>Thuộc {issue.parent.key}</span>}
           {issue.childCount > 0 && (
@@ -328,14 +338,14 @@ function IssueRow({
       </span>
       {canEdit ? (
         <select value={issue.status} onChange={(e) => onStatus(issue, e.target.value as IssueStatus)} aria-label="Trạng thái" className={`status-select status-${issue.status.toLowerCase()}`}>
-          {ISSUE_STATUSES.map((s) => (
+          {workflow.enabled.map((s) => (
             <option key={s} value={s}>
-              {STATUS_LABELS[s]}
+              {workflow.names[s]}
             </option>
           ))}
         </select>
       ) : (
-        <span className={`badge status-${issue.status.toLowerCase()}`}>{STATUS_LABELS[issue.status]}</span>
+        <span className={`badge status-${issue.status.toLowerCase()}`}>{workflow.names[issue.status]}</span>
       )}
       {canEdit ? (
         <select value={issue.assignee?.id ?? ''} onChange={(e) => onAssign(issue, e.target.value)} aria-label="Người phụ trách" className="assignee-select">

@@ -19,7 +19,7 @@ import org.springframework.data.jpa.domain.Specification;
  */
 public record IssueFilter(String q, List<IssueType> types, List<IssueStatus> statuses,
 		List<IssuePriority> priorities, UUID assigneeId, boolean unassigned, UUID epicId, String label,
-		RefinementStatus refinement) {
+		RefinementStatus refinement, UUID sprintId, boolean unplanned) {
 
 	private static final Pattern KEY_OR_NUMBER = Pattern.compile("^(?:[A-Za-z][A-Za-z0-9]*-)?(\\d+)$");
 
@@ -49,6 +49,12 @@ public record IssueFilter(String q, List<IssueType> types, List<IssueStatus> sta
 			}
 			else if (unassigned) {
 				all.add(cb.isNull(root.get("assigneeId")));
+			}
+			if (sprintId != null) {
+				all.add(cb.equal(root.get("sprintId"), sprintId));
+			}
+			else if (unplanned) {
+				all.add(cb.isNull(root.get("sprintId")));
 			}
 			if (refinement != null) {
 				all.add(cb.equal(root.get("refinement"), refinement));

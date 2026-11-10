@@ -55,6 +55,45 @@ public interface IssueRepository extends JpaRepository<Issue, UUID>, JpaSpecific
 	@Query("select distinct l from Issue i join i.labels l where i.projectId = :projectId order by l")
 	List<String> findLabels(@Param("projectId") UUID projectId);
 
+	List<Issue> findAllBySprintIdOrderByBacklogRankAscIdAsc(UUID sprintId);
+
+	/** Kanban board: everything but epics, with finished work dropping off after a while. */
+	@Query("""
+			select i from Issue i where i.projectId = :projectId and i.type <> com.workhub.issue.IssueType.EPIC
+				and (i.status <> com.workhub.issue.IssueStatus.DONE or i.doneAt >= :doneSince)
+			order by i.backlogRank, i.id
+			""")
+	List<Issue> findBoardIssues(@Param("projectId") UUID projectId, @Param("doneSince") java.time.Instant doneSince);
+
+	List<Issue> findAllByParentIdIn(Collection<UUID> parentIds);
+
+	long countByProjectIdAndStatus(UUID projectId, IssueStatus status);
+
+	/** Rows: status, count, sum of story points, for the issues currently in a sprint. */
+	@Query("""
+			select i.status, count(i), coalesce(sum(i.storyPoints), 0) from Issue i
+			where i.sprintId = :sprintId group by i.status
+			""")
+	List<Object[]> sprintStatusTotals(@Param("sprintId") UUID sprintId);
+
+	@Query("""
+			select count(i) from Issue i
+			where i.sprintId = :sprintId and i.status <> com.workhub.issue.IssueStatus.DONE and i.dueDate < :today
+			""")
+	long countOverdueInSprint(@Param("sprintId") UUID sprintId, @Param("today") java.time.LocalDate today);
+
+	@Query("select count(i) from Issue i where i.sprintId = :sprintId and i.blocked = true and i.status <> com.workhub.issue.IssueStatus.DONE")
+	long countBlockedInSprint(@Param("sprintId") UUID sprintId);
+
+	/** Per sprint: issue count, scope points, done issue count, done points. Rows: sprintId, n, points, doneN, donePoints. */
+	@Query("""
+			select i.sprintId, count(i), coalesce(sum(i.storyPoints), 0),
+				coalesce(sum(case when i.status = com.workhub.issue.IssueStatus.DONE then 1 else 0 end), 0),
+				coalesce(sum(case when i.status = com.workhub.issue.IssueStatus.DONE then i.storyPoints else 0 end), 0)
+			from Issue i where i.sprintId in :sprintIds group by i.sprintId
+			""")
+	List<Object[]> sprintSummaries(@Param("sprintIds") Collection<UUID> sprintIds);
+
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("update Issue i set i.assigneeId = null where i.projectId = :projectId and i.assigneeId = :userId")
 	int unassign(@Param("projectId") UUID projectId, @Param("userId") UUID userId);

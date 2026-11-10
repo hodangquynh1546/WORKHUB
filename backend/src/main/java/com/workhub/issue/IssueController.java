@@ -51,11 +51,11 @@ public class IssueController {
 			@RequestParam(required = false) List<IssuePriority> priority,
 			@RequestParam(required = false) UUID assigneeId, @RequestParam(defaultValue = "false") boolean unassigned,
 			@RequestParam(required = false) UUID epicId, @RequestParam(required = false) String label,
-			@RequestParam(required = false) RefinementStatus refinement,
-			@RequestParam(required = false) String sort, @RequestParam(defaultValue = "0") int page,
+			@RequestParam(required = false) RefinementStatus refinement, @RequestParam(required = false) UUID sprintId,
+			@RequestParam(defaultValue = "false") boolean unplanned, @RequestParam(required = false) String sort, @RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "100") int size) {
 		IssueFilter filter = new IssueFilter(q, type, status, priority, assigneeId, unassigned, epicId, label,
-				refinement);
+				refinement, sprintId, unplanned);
 		return issueService.list(CurrentUser.id(jwt), projectId, filter, sort, page, size);
 	}
 
@@ -92,6 +92,12 @@ public class IssueController {
 	public IssueResponse assign(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID issueId,
 			@RequestBody IssueRequests.Assign request) {
 		return issueService.assign(CurrentUser.id(jwt), issueId, request.assigneeId());
+	}
+
+	@PutMapping("/api/issues/{issueId}/blocked")
+	public IssueResponse block(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID issueId,
+			@Valid @RequestBody IssueRequests.Block request) {
+		return issueService.block(CurrentUser.id(jwt), issueId, request.blocked(), request.reason());
 	}
 
 	@PutMapping("/api/issues/{issueId}/rank")

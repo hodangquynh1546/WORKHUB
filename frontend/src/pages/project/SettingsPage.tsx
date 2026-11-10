@@ -2,7 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router'
 import { api } from '../../api/client'
 import { errorMessage } from '../../api/errors'
-import type { Methodology, Project, ProjectStatus } from '../../api/types'
+import type { Methodology, Project, ProjectStatus, WorkflowEntry } from '../../api/types'
+import { useWorkflow } from '../../api/useWorkflow'
 import { Alert, Field } from '../../components/Form'
 import { METHODOLOGY_LABELS, PROJECT_STATUS_LABELS, PROJECT_STATUSES } from '../roles'
 import { useProject } from './projectContext'
@@ -16,7 +17,10 @@ export function SettingsPage() {
   return (
     <div className="two-column">
       <DetailsForm />
-      <StatusForm />
+      <div className="stack-lg">
+        <StatusForm />
+        <WorkflowForm />
+      </div>
     </div>
   )
 }
@@ -109,6 +113,54 @@ function StatusForm() {
         </select>
       </label>
       {message && <Alert kind={message.ok ? 'success' : 'error'}>{message.text}</Alert>}
+    </section>
+  )
+}
+
+const REQUIRED = new Set(['TO_DO', 'IN_PROGRESS', 'DONE'])
+
+/** Rename the board columns and hide the optional ones (Code review, Testing). */
+function WorkflowForm() {
+  const { project } = useProject()
+  const workflow = useWorkflow(project.id)
+  if (!workflow.entries) return null
+  return <WorkflowEditor key={JSON.stringify(workflow.entries)} projectId={project.id} entries={workflow.entries} onSaved={workflow.reload} />
+}
+
+function WorkflowEditor({ projectId, entries, onSaved }: { projectId: string; entries: WorkflowEntry[]; onSaved: () => void }) {
+  const [rows, setRows] = useState(entries)
+  const [message, setMessage] = useState<Message>(null)
+
+  const change = (status: string, patch: Partial<WorkflowEntry>) => setRows((list) => list.map((r) => (r.status === status ? { ...r, ...patch } : r)))
+
+  async function save(event: FormEvent) {
+    event.preventDefault()
+    setMessage(null)
+    try {
+      await api(`/api/projects/${projectId}/workflow`, { method: 'PUT', body: rows })
+      onSaved()
+      setMessage({ ok: true, text: 'Đã lưu cấu hình cột.' })
+    } catch (err) {
+      setMessage({ ok: false, text: errorMessage(err) })
+    }
+  }
+
+  return (
+    <section className="card stack">
+      <h2>Cột của Board</h2>
+      <p className="muted small">Đổi tên các cột và ẩn Code review / Kiểm thử nếu team không dùng. Chỉ ẩn được khi không còn công việc ở trạng thái đó.</p>
+      <form onSubmit={save} className="stack">
+        {rows.map((row) => (
+          <div key={row.status} className="inline-form">
+            <Field label={row.status} required maxLength={40} value={row.name} onChange={(e) => change(row.status, { name: e.target.value })} />
+            <label className="inline-check">
+              <input type="checkbox" checked={row.enabled} disabled={REQUIRED.has(row.status)} onChange={(e) => change(row.status, { enabled: e.target.checked })} /> Dùng
+            </label>
+          </div>
+        ))}
+        {message && <Alert kind={message.ok ? 'success' : 'error'}>{message.text}</Alert>}
+        <button type="submit">Lưu cấu hình cột</button>
+      </form>
     </section>
   )
 }

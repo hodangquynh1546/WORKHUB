@@ -2,6 +2,7 @@ package com.workhub.issue;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -14,6 +15,7 @@ import java.util.UUID;
 import com.workhub.access.AccessService;
 import com.workhub.access.ProjectAccess;
 import com.workhub.access.ProjectPermission;
+import com.workhub.board.WorkflowService;
 import com.workhub.common.ApiException;
 import com.workhub.common.PageResponse;
 import com.workhub.common.Strings;
@@ -26,9 +28,12 @@ import com.workhub.issue.IssueResponses.ProjectStats;
 import com.workhub.project.Project;
 import com.workhub.project.ProjectMemberRepository;
 import com.workhub.project.ProjectRepository;
+import com.workhub.sprint.SprintRepository;
+import com.workhub.sprint.SprintStatus;
 import com.workhub.user.User;
 import com.workhub.user.UserRepository;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -68,9 +73,18 @@ public class IssueService {
 
 	private final Clock clock;
 
+	private final ZoneId zone;
+
+	private final WorkflowService workflow;
+
+	private final SprintRepository sprints;
+
+	private final ApplicationEventPublisher events;
+
 	public IssueService(AccessService access, IssueLoader loader, IssueRepository issues, IssueMapper mapper,
 			ProjectRepository projects, ProjectMemberRepository projectMembers, ChecklistItemRepository checklist,
-			IssueActivityRepository activity, UserRepository users, Clock clock) {
+			IssueActivityRepository activity, UserRepository users, Clock clock, ZoneId zone,
+			WorkflowService workflow, SprintRepository sprints, ApplicationEventPublisher events) {
 		this.access = access;
 		this.loader = loader;
 		this.issues = issues;
@@ -81,6 +95,10 @@ public class IssueService {
 		this.activity = activity;
 		this.users = users;
 		this.clock = clock;
+		this.zone = zone;
+		this.workflow = workflow;
+		this.sprints = sprints;
+		this.events = events;
 	}
 
 	// ---- create / read ----
@@ -186,7 +204,7 @@ public class IssueService {
 				}
 			}
 		}
-		LocalDate day = (today != null) ? today : LocalDate.now(clock);
+		LocalDate day = (today != null) ? today : LocalDate.now(clock.withZone(zone));
 		return new ProjectStats(total, toDo, inProgress, done, issues.countOverdue(projectId, day), points, donePoints);
 	}
 
@@ -197,7 +215,11 @@ public class IssueService {
 		Issue issue = loaded.issue();
 		checkDates(request.startDate(), request.dueDate());
 		checkHierarchy(issue.getProjectId(), issue, request.type(), request.parentId());
+		if (request.type() == IssueType.EPIC && issue.getSprintId() != null) {
+			throw ApiException.conflict("EPIC_IN_SPRINT", "Remove the issue from its sprint before making it an epic");
+		}
 		Project project = loaded.access().project();
+		boolean scopeChange = !Objects.equals(issue.getStoryPoints(), request.storyPoints());
 
 		History history = new History(issue.getId(), userId);
 		history.text("title", issue.getTitle(), request.title().strip());
@@ -230,17 +252,44 @@ public class IssueService {
 		issue.setAcceptanceCriteria(Strings.trimToNull(request.acceptanceCriteria()));
 		issue.replaceLabels(labels);
 		history.saveTo(activity);
+		if (scopeChange) {
+			announce(issue);
+		}
 		return mapper.toResponse(project, issue, true);
 	}
 
 	public IssueResponse changeStatus(UUID userId, UUID issueId, IssueStatus status) {
 		Loaded loaded = editable(userId, issueId);
 		Issue issue = loaded.issue();
+		if (issue.getStatus() != status) {
+			workflow.requireEnabled(issue.getProjectId(), status);
+		}
 		History history = new History(issue.getId(), userId);
 		history.value("status", issue.getStatus(), status);
 		issue.changeStatus(status, clock.instant());
 		history.saveTo(activity);
+		announce(issue);
 		return mapper.toResponse(loaded.access().project(), issue, true);
+	}
+
+	/** Flags an issue as blocked (with a reason) or clears the flag. */
+	public IssueResponse block(UUID userId, UUID issueId, boolean blocked, String reason) {
+		Loaded loaded = editable(userId, issueId);
+		Issue issue = loaded.issue();
+		String cleanReason = blocked ? Strings.trimToNull(reason) : null;
+		History history = new History(issue.getId(), userId);
+		history.value("blocked", issue.isBlocked(), blocked);
+		history.value("blockedReason", issue.getBlockedReason(), cleanReason);
+		issue.setBlocked(blocked, cleanReason);
+		history.saveTo(activity);
+		return mapper.toResponse(loaded.access().project(), issue, true);
+	}
+
+	/** Lets the sprint module refresh its numbers when a sprint issue's status or points change. */
+	private void announce(Issue issue) {
+		if (issue.getSprintId() != null) {
+			events.publishEvent(new IssueChangedEvent(issue.getId(), issue.getSprintId()));
+		}
 	}
 
 	public IssueResponse assign(UUID userId, UUID issueId, UUID assigneeId) {
@@ -308,6 +357,10 @@ public class IssueService {
 		loaded.access().require(ProjectPermission.MANAGE_BACKLOG).requireActive();
 		if (issues.existsByParentId(issueId)) {
 			throw ApiException.conflict("HAS_CHILDREN", "Move or delete the child issues first");
+		}
+		UUID sprintId = loaded.issue().getSprintId();
+		if (sprintId != null && sprints.existsByIdAndStatusIn(sprintId, List.of(SprintStatus.FUTURE, SprintStatus.ACTIVE))) {
+			throw ApiException.conflict("IN_SPRINT", "Remove the issue from its sprint first");
 		}
 		loaded.issue().markDeleted(clock.instant());
 	}

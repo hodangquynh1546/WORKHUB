@@ -17,6 +17,8 @@ import com.workhub.access.WorkspaceAccess;
 import com.workhub.common.ApiException;
 import com.workhub.common.Strings;
 import com.workhub.issue.IssueRepository;
+import com.workhub.sprint.SprintRepository;
+import com.workhub.sprint.SprintStatus;
 import com.workhub.team.Team;
 import com.workhub.team.TeamRepository;
 import com.workhub.workspace.WorkspaceMemberRepository;
@@ -40,14 +42,18 @@ public class ProjectService {
 
 	private final IssueRepository issues;
 
+	private final SprintRepository sprints;
+
 	public ProjectService(AccessService access, ProjectRepository projects, ProjectMemberRepository members,
-			TeamRepository teams, WorkspaceMemberRepository workspaceMembers, IssueRepository issues) {
+			TeamRepository teams, WorkspaceMemberRepository workspaceMembers, IssueRepository issues,
+			SprintRepository sprints) {
 		this.access = access;
 		this.projects = projects;
 		this.members = members;
 		this.teams = teams;
 		this.workspaceMembers = workspaceMembers;
 		this.issues = issues;
+		this.sprints = sprints;
 	}
 
 	/** Team leads and workspace admins create projects; the creator becomes PROJECT_MANAGER. */
@@ -106,6 +112,10 @@ public class ProjectService {
 		ProjectAccess project = access.project(userId, projectId)
 			.require(ProjectPermission.UPDATE_PROJECT)
 			.requireActive();
+		if (request.methodology() == Methodology.KANBAN && project.project().getMethodology() == Methodology.SCRUM
+				&& sprints.existsByProjectIdAndStatusIn(projectId, List.of(SprintStatus.FUTURE, SprintStatus.ACTIVE))) {
+			throw ApiException.conflict("OPEN_SPRINTS", "Complete or cancel the open sprints before switching to Kanban");
+		}
 		project.project()
 			.update(details(request.name(), request.description(), request.avatarUrl(), request.startDate(),
 					request.endDate(), request.methodology()));

@@ -84,14 +84,30 @@ export const FIELD_LABELS: Record<string, string> = {
   remainingEstimate: 'ước lượng còn lại (phút)',
   acceptanceCriteria: 'tiêu chí chấp nhận',
   labels: 'nhãn',
+  blocked: 'cờ Blocked',
+  blockedReason: 'lý do bị chặn',
 }
 
 /** Translates enum-valued history entries and leaves everything else as is. */
-export function historyValue(field: string | null, value: string | null): string {
+export function historyValue(field: string | null, value: string | null, names: Record<IssueStatus, string> = STATUS_LABELS): string {
   if (value === null || value === '') return '—'
-  if (field === 'status') return STATUS_LABELS[value as IssueStatus] ?? value
+  if (field === 'status') return names[value as IssueStatus] ?? value
+  if (field === 'blocked') return value === 'true' ? 'bị chặn' : 'không bị chặn'
   if (field === 'priority') return PRIORITY_LABELS[value as IssuePriority] ?? value
   if (field === 'type') return TYPE_LABELS[value as IssueType] ?? value
   if (field === 'refinement') return REFINEMENT_LABELS[value as RefinementStatus] ?? value
   return value
 }
+
+export const GOAL_OUTCOME_LABELS = {
+  ACHIEVED: 'Đạt mục tiêu',
+  PARTIALLY_ACHIEVED: 'Đạt một phần',
+  NOT_ACHIEVED: 'Không đạt',
+} as const
+
+export const SPRINT_STATUS_LABELS = {
+  FUTURE: 'Sắp tới',
+  ACTIVE: 'Đang chạy',
+  COMPLETED: 'Đã hoàn thành',
+  CANCELLED: 'Đã hủy',
+} as const

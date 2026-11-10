@@ -1,14 +1,38 @@
 import { useState } from 'react'
-import type { ProjectMember, ProjectRole, ProjectStats } from '../../api/types'
+import { Link } from 'react-router'
+import type { ProjectMember, ProjectRole, ProjectStats, Sprint } from '../../api/types'
 import { useResource } from '../../api/useResource'
 import { Alert } from '../../components/Form'
-import { formatDay, METHODOLOGY_LABELS, PROJECT_ROLE_LABELS, PROJECT_ROLES, PROJECT_STATUS_LABELS, scheduleProgress } from '../roles'
+import { formatDay, localIsoDate, METHODOLOGY_LABELS, PROJECT_ROLE_LABELS, PROJECT_ROLES, PROJECT_STATUS_LABELS, scheduleProgress } from '../roles'
 import { useProject } from './projectContext'
 
-/** Today's date in the browser's timezone as yyyy-mm-dd. */
-function localIsoDate(): string {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+function RunningSprint({ projectId }: { projectId: string }) {
+  const { data } = useResource<Sprint[]>(`/api/projects/${projectId}/sprints?status=ACTIVE`)
+  const sprint = data?.[0]
+  return (
+    <section className="card stack">
+      <h2>Sprint hiện tại</h2>
+      {sprint ? (
+        <>
+          <p>
+            <Link to={`sprints/${sprint.id}`}>{sprint.name}</Link>{' '}
+            <span className="muted small">
+              {formatDay(sprint.startDate)} → {formatDay(sprint.endDate)}
+            </span>
+          </p>
+          {sprint.goal && <p>🎯 {sprint.goal}</p>}
+          <p className="muted">
+            {sprint.doneIssueCount}/{sprint.issueCount} công việc · {sprint.donePoints}/{sprint.scopePoints} SP đã xong
+          </p>
+          <Link to="board">Mở Board →</Link>
+        </>
+      ) : (
+        <p className="muted">
+          Chưa có Sprint nào đang chạy. <Link to="sprints">Lên kế hoạch Sprint →</Link>
+        </p>
+      )}
+    </section>
+  )
 }
 
 function Stat({ label, value, warn = false }: { label: string; value: number | string; warn?: boolean }) {
@@ -27,7 +51,7 @@ export function OverviewPage() {
   const { data: members, error } = useResource<ProjectMember[]>(`/api/projects/${project.id}/members`)
   const progress = scheduleProgress(project.startDate, project.endDate)
   // Overdue is date-based, so let the browser say which day it is (fixed for the life of the page).
-  const [todayIso] = useState(localIsoDate)
+  const [todayIso] = useState(() => localIsoDate())
   const { data: stats } = useResource<ProjectStats>(`/api/projects/${project.id}/stats?today=${todayIso}`)
 
   return (
@@ -51,6 +75,8 @@ export function OverviewPage() {
             <dd>{formatDay(project.endDate)}</dd>
           </dl>
         </section>
+
+        {project.methodology === 'SCRUM' && <RunningSprint projectId={project.id} />}
 
         <section className="card stack">
           <h2>Công việc</h2>

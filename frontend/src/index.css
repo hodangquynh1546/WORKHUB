@@ -848,3 +848,126 @@ input[type='search'],
 .stat-warn strong {
   color: var(--danger);
 }
+
+/* M5: sprints and board */
+.sprint-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.sprint-completed {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.sprint-cancelled {
+  background: var(--border);
+  color: var(--muted);
+}
+
+.sprint-chip {
+  padding: 0 0.45rem;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.blocked-chip {
+  display: inline-block;
+  margin: 0 0 0 0.4rem;
+  padding: 0 0.45rem;
+  border-radius: 6px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.text-danger {
+  color: var(--danger);
+}
+
+.progress-over {
+  background: var(--danger);
+}
+
+.edit-box {
+  padding: 1rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.radio-group {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.picker-list {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.board {
+  display: grid;
+  gap: 0.75rem;
+  overflow-x: auto;
+  align-items: start;
+}
+
+.board-column {
+  min-height: 160px;
+  padding: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.board-column h3 {
+  margin: 0 0 0.6rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.drop-target-column {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.board-card {
+  margin-bottom: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: grab;
+}
+
+.board-card-blocked {
+  border-color: var(--danger);
+}
+
+.board-card-title {
+  display: block;
+  margin: 0.25rem 0;
+  color: var(--text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.board-card-title:hover {
+  color: var(--accent);
+}
+
+.board-card-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.column-empty {
+  text-align: center;
+  padding: 1rem 0;
+}

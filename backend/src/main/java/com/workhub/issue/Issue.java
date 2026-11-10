@@ -89,6 +89,16 @@ public class Issue {
 	@Column(name = "acceptance_criteria", length = 10000)
 	private String acceptanceCriteria;
 
+	/** The sprint the issue belongs to (see V7); changed through {@link #moveToSprint}. */
+	@Column(name = "sprint_id")
+	private UUID sprintId;
+
+	@Column(nullable = false)
+	private boolean blocked;
+
+	@Column(name = "blocked_reason", length = 500)
+	private String blockedReason;
+
 	@Column(name = "backlog_rank", nullable = false)
 	private long backlogRank;
 
@@ -179,6 +189,16 @@ public class Issue {
 
 	void setAcceptanceCriteria(String acceptanceCriteria) {
 		this.acceptanceCriteria = acceptanceCriteria;
+	}
+
+	void setBlocked(boolean blocked, String reason) {
+		this.blocked = blocked;
+		this.blockedReason = blocked ? reason : null;
+	}
+
+	/** Called by the sprint module only; null takes the issue out of every sprint. */
+	public void moveToSprint(UUID sprintId) {
+		this.sprintId = sprintId;
 	}
 
 	void setBacklogRank(long backlogRank) {
@@ -275,6 +295,18 @@ public class Issue {
 
 	public String getAcceptanceCriteria() {
 		return acceptanceCriteria;
+	}
+
+	public UUID getSprintId() {
+		return sprintId;
+	}
+
+	public boolean isBlocked() {
+		return blocked;
+	}
+
+	public String getBlockedReason() {
+		return blockedReason;
 	}
 
 	public long getBacklogRank() {

@@ -11,8 +11,11 @@ import java.util.UUID;
 
 import com.workhub.issue.IssueResponses.IssueRef;
 import com.workhub.issue.IssueResponses.IssueResponse;
+import com.workhub.issue.IssueResponses.SprintRef;
 import com.workhub.issue.IssueResponses.UserRef;
 import com.workhub.project.Project;
+import com.workhub.sprint.Sprint;
+import com.workhub.sprint.SprintRepository;
 import com.workhub.user.User;
 import com.workhub.user.UserRepository;
 
@@ -20,7 +23,7 @@ import org.springframework.stereotype.Component;
 
 /** Turns issues into responses with a fixed number of queries per call (users, ancestors, child counts). */
 @Component
-class IssueMapper {
+public class IssueMapper {
 
 	/** Epic → feature → story/task → sub-task: an epic is at most three levels above an issue. */
 	private static final int MAX_ANCESTOR_LEVELS = 3;
@@ -29,22 +32,26 @@ class IssueMapper {
 
 	private final IssueRepository issues;
 
-	IssueMapper(UserRepository users, IssueRepository issues) {
+	private final SprintRepository sprints;
+
+	IssueMapper(UserRepository users, IssueRepository issues, SprintRepository sprints) {
 		this.users = users;
 		this.issues = issues;
+		this.sprints = sprints;
 	}
 
-	IssueResponse toResponse(Project project, Issue issue, boolean full) {
+	public IssueResponse toResponse(Project project, Issue issue, boolean full) {
 		return toResponses(project, List.of(issue), full).get(0);
 	}
 
-	List<IssueResponse> toResponses(Project project, List<Issue> list, boolean full) {
+	public List<IssueResponse> toResponses(Project project, List<Issue> list, boolean full) {
 		if (list.isEmpty()) {
 			return List.of();
 		}
 		Map<UUID, User> people = loadUsers(list);
 		Map<UUID, Issue> ancestors = loadAncestors(list);
 		Map<UUID, int[]> counts = loadChildCounts(list);
+		Map<UUID, Sprint> sprintsById = loadSprints(list);
 		List<IssueResponse> out = new ArrayList<>(list.size());
 		for (Issue issue : list) {
 			Issue parent = ancestors.get(issue.getParentId());
@@ -57,9 +64,28 @@ class IssueMapper {
 					issue.getStoryPoints(), issue.getOriginalEstimateMinutes(), issue.getRemainingEstimateMinutes(),
 					full ? issue.getAcceptanceCriteria() : null, issue.getLabels().stream().sorted().toList(),
 					issue.getBacklogRank(), issue.getStartedAt(), issue.getDoneAt(), issue.getCreatedAt(),
-					issue.getUpdatedAt(), count[0], count[1]));
+					issue.getUpdatedAt(), count[0], count[1], issue.isBlocked(), issue.getBlockedReason(),
+					sprintRef(sprintsById.get(issue.getSprintId()))));
 		}
 		return out;
+	}
+
+	private static SprintRef sprintRef(Sprint sprint) {
+		return (sprint == null) ? null : new SprintRef(sprint.getId(), sprint.getName(), sprint.getStatus());
+	}
+
+	private Map<UUID, Sprint> loadSprints(List<Issue> list) {
+		Set<UUID> ids = new HashSet<>();
+		for (Issue issue : list) {
+			if (issue.getSprintId() != null) {
+				ids.add(issue.getSprintId());
+			}
+		}
+		Map<UUID, Sprint> byId = new HashMap<>();
+		if (!ids.isEmpty()) {
+			sprints.findAllById(ids).forEach((sprint) -> byId.put(sprint.getId(), sprint));
+		}
+		return byId;
 	}
 
 	static String key(Project project, Issue issue) {
@@ -70,7 +96,7 @@ class IssueMapper {
 		return new IssueRef(issue.getId(), key(project, issue), issue.getTitle(), issue.getType());
 	}
 
-	static UserRef userRef(User user) {
+	public static UserRef userRef(User user) {
 		return (user == null) ? null : new UserRef(user.getId(), user.getFullName(), user.getAvatarUrl());
 	}
 
