@@ -2,6 +2,9 @@ import { ApiError } from './client'
 
 const MESSAGES: Record<string, string> = {
   EMAIL_TAKEN: 'Email này đã được đăng ký.',
+  OWNS_WORKSPACES: 'Bạn đang là chủ của workspace. Hãy chuyển quyền chủ sở hữu hoặc xóa workspace trước.',
+  ALREADY_OWNER: 'Bạn đã là chủ sở hữu workspace này.',
+  NAME_MISMATCH: 'Tên bạn nhập không khớp.',
   RATE_LIMITED: 'Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.',
   INVALID_CREDENTIALS: 'Email hoặc mật khẩu không đúng.',
   INVALID_TOKEN: 'Liên kết không hợp lệ hoặc đã hết hạn.',

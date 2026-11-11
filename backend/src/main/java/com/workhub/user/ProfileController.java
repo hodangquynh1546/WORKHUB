@@ -36,7 +36,11 @@ public class ProfileController {
 
 	private final RefreshCookies refreshCookies;
 
-	public ProfileController(UserService userService, AuthService authService, RefreshCookies refreshCookies) {
+	private final AccountDeletionService accountDeletion;
+
+	public ProfileController(UserService userService, AuthService authService, RefreshCookies refreshCookies,
+			AccountDeletionService accountDeletion) {
+		this.accountDeletion = accountDeletion;
 		this.userService = userService;
 		this.authService = authService;
 		this.refreshCookies = refreshCookies;
@@ -61,6 +65,13 @@ public class ProfileController {
 	@DeleteMapping("/avatar")
 	public UserProfile removeAvatar(@AuthenticationPrincipal Jwt jwt) {
 		return userService.removeAvatar(CurrentUser.id(jwt));
+	}
+
+	/** Anonymises the account (see {@link AccountDeletionService}) and clears the caller's refresh cookie. */
+	@DeleteMapping
+	public ResponseEntity<Void> deleteAccount(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody AuthRequests.DeleteAccount request) {
+		accountDeletion.delete(CurrentUser.id(jwt), request.password());
+		return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, refreshCookies.clear().toString()).build();
 	}
 
 	/** Other sessions are signed out; the caller gets a new session in the response. */

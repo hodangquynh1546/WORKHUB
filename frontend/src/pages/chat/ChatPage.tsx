@@ -9,6 +9,7 @@ import { Alert, Field } from '../../components/Form'
 import { Avatar } from '../../components/Avatar'
 import { ListSkeleton } from '../../components/Skeleton'
 import { useRealtime } from '../../realtime/RealtimeContext'
+import { typingLabel } from './typing'
 import { timeAgo } from '../notificationLabels'
 import { MessagePane } from './MessagePane'
 
@@ -26,6 +27,30 @@ export function ChatPage() {
   const { data, error, reload } = useResource<ConversationSummary[]>('/api/chat/conversations')
   const [creating, setCreating] = useState<'direct' | 'group' | null>(null)
   const [online, setOnline] = useState<Set<string>>(new Set())
+  // Who is typing where: conversation id -> user id -> name and expiry (a signal lasts 4 s).
+  const [typing, setTyping] = useState<Record<string, Record<string, { name: string; until: number }>>>({})
+  const { user: self } = useAuth()
+
+  useEffect(() => {
+    const offs = [
+      on('chat.typing', (frame) => {
+        if (frame.userId === self?.id) return
+        const conversation = frame.conversationId as string
+        setTyping((t) => ({ ...t, [conversation]: { ...t[conversation], [frame.userId as string]: { name: String(frame.name ?? ''), until: Date.now() + 4000 } } }))
+      }),
+      // A message from someone ends their "typing".
+      on('chat.message', (frame) => {
+        const conversation = frame.conversationId as string
+        const sender = (frame.message as { sender?: { id: string } | null } | undefined)?.sender?.id
+        if (sender) setTyping((t) => (t[conversation]?.[sender] ? { ...t, [conversation]: Object.fromEntries(Object.entries(t[conversation]).filter(([k]) => k !== sender)) } : t))
+      }),
+    ]
+    const timer = setInterval(() => setTyping((t) => (Object.values(t).some((m) => Object.values(m).some((x) => x.until < Date.now())) ? Object.fromEntries(Object.entries(t).map(([c, m]) => [c, Object.fromEntries(Object.entries(m).filter(([, x]) => x.until >= Date.now()))])) : t)), 1000)
+    return () => {
+      clearInterval(timer)
+      offs.forEach((off) => off())
+    }
+  }, [on, self?.id])
 
   // The list (last message, unread badges, order) follows the conversation traffic.
   useEffect(() => {
@@ -109,7 +134,18 @@ export function ChatPage() {
                     )}
                     <span className="chat-item-main">
                       <span className="chat-item-title">{c.title}</span>
-                      <span className="chat-item-last muted small">{c.last ? `${c.last.senderName ? `${c.last.senderName}: ` : ''}${c.last.snippet}` : 'Chưa có tin nhắn'}</span>
+                      {Object.keys(typing[c.id] ?? {}).length > 0 ? (
+                        <span className="chat-item-last small typing-inline" aria-live="polite">
+                          <span className="typing-dots" aria-hidden="true">
+                            <i />
+                            <i />
+                            <i />
+                          </span>
+                          {typingLabel(Object.values(typing[c.id]).map((x) => x.name))}
+                        </span>
+                      ) : (
+                        <span className="chat-item-last muted small">{c.last ? `${c.last.senderName ? `${c.last.senderName}: ` : ''}${c.last.snippet}` : 'Chưa có tin nhắn'}</span>
+                      )}
                     </span>
                     <span className="chat-item-meta">
                       {c.lastMessageAt && <span className="muted small">{timeAgo(c.lastMessageAt)}</span>}

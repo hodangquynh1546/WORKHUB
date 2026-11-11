@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import com.workhub.chat.ChatResponses.AttachmentResponse;
 import com.workhub.chat.ChatResponses.ReactionResponse;
 import com.workhub.chat.ChatResponses.ReplyPreview;
 import com.workhub.chat.ChatResponses.MessageResponse;
@@ -36,7 +37,11 @@ class ChatMapper {
 
 	private final ChatMessageRepository messages;
 
-	ChatMapper(UserRepository users, MessageReactionRepository reactions, MessageMentionRepository mentions, ChatMessageRepository messages) {
+	private final ChatAttachmentRepository attachments;
+
+	ChatMapper(UserRepository users, MessageReactionRepository reactions, MessageMentionRepository mentions, ChatMessageRepository messages,
+			ChatAttachmentRepository attachments) {
+		this.attachments = attachments;
 		this.users = users;
 		this.reactions = reactions;
 		this.mentions = mentions;
@@ -52,6 +57,9 @@ class ChatMapper {
 		reactions.findAllByMessageIdIn(ids).forEach((r) -> reactionsByMessage.computeIfAbsent(r.getMessageId(), (k) -> new ArrayList<>()).add(r));
 		Map<UUID, List<UUID>> mentionsByMessage = new HashMap<>();
 		mentions.findAllByMessageIdIn(ids).forEach((m) -> mentionsByMessage.computeIfAbsent(m.getMessageId(), (k) -> new ArrayList<>()).add(m.getUserId()));
+
+		Map<UUID, List<AttachmentResponse>> files = new HashMap<>();
+		attachments.infoFor(ids).forEach((a) -> files.computeIfAbsent(a.messageId(), (k) -> new ArrayList<>()).add(attachment(a)));
 
 		Set<UUID> replyIds = new HashSet<>();
 		list.forEach((m) -> {
@@ -78,9 +86,16 @@ class ChatMapper {
 			out.add(new MessageResponse(m.getId(), m.getConversationId(), ref(people.get(m.getSenderId())),
 					deleted ? null : m.getBody(), preview, m.getCreatedAt(), m.getEditedAt(), deleted,
 					deleted ? List.of() : reactionList(reactionsByMessage.get(m.getId())),
-					deleted ? List.of() : mentionsByMessage.getOrDefault(m.getId(), List.of())));
+					deleted ? List.of() : mentionsByMessage.getOrDefault(m.getId(), List.of()),
+					deleted ? List.of() : files.getOrDefault(m.getId(), List.of())));
 		}
 		return out;
+	}
+
+	static final java.util.Set<String> IMAGE_TYPES = java.util.Set.of("image/png", "image/jpeg", "image/webp", "image/gif");
+
+	private static AttachmentResponse attachment(ChatAttachment.Info a) {
+		return new AttachmentResponse(a.id(), a.fileName(), a.contentType(), a.sizeBytes(), IMAGE_TYPES.contains(a.contentType()));
 	}
 
 	MessageResponse response(ChatMessage message) {

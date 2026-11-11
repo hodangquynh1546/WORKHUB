@@ -15,7 +15,7 @@ export type AuthResponse = {
 }
 
 export type WorkspaceRole = 'OWNER' | 'ADMIN' | 'MEMBER'
-export type WorkspacePermission = 'VIEW' | 'UPDATE_SETTINGS' | 'MANAGE_MEMBERS' | 'MANAGE_ADMINS' | 'VIEW_AUDIT' | 'MANAGE_TEAMS' | 'DELETE_WORKSPACE'
+export type WorkspacePermission = 'VIEW' | 'UPDATE_SETTINGS' | 'MANAGE_MEMBERS' | 'MANAGE_ADMINS' | 'VIEW_AUDIT' | 'MANAGE_TEAMS' | 'DELETE_WORKSPACE' | 'TRANSFER_OWNERSHIP'
 
 export type Workspace = {
   id: string
@@ -630,7 +630,13 @@ export type ChatMessage = {
   deleted: boolean
   reactions: { emoji: string; userIds: string[] }[]
   mentions: string[]
+  attachments: ChatAttachment[]
 }
+
+export type ChatAttachment = { id: string; fileName: string; contentType: string; size: number; image: boolean }
+
+/** `userId` has read everything sent up to `lastReadAt`. */
+export type ChatReceipt = { userId: string; lastReadAt: string }
 
 export type ChatMessagePage = { items: ChatMessage[]; hasMore: boolean }
 

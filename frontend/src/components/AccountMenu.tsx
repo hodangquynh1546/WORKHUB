@@ -53,6 +53,10 @@ export function AccountMenu() {
             <summary>Đổi mật khẩu</summary>
             <ChangePasswordForm />
           </details>
+          <details className="account-section">
+            <summary>Xóa tài khoản</summary>
+            <DeleteAccountForm onDeleted={async () => { setOpen(false); await logout().catch(() => undefined); navigate('/login') }} />
+          </details>
           <Link to="/activity" className="account-link" onClick={() => setOpen(false)}>
             Hoạt động của tôi
           </Link>
@@ -162,6 +166,39 @@ function ProfileEditor({ user }: { user: UserProfile }) {
         </button>
       </form>
     </div>
+  )
+}
+
+function DeleteAccountForm({ onDeleted }: { onDeleted: () => void }) {
+  const [password, setPassword] = useState('')
+  const [message, setMessage] = useState<Message>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    if (!window.confirm('Xóa tài khoản vĩnh viễn? Bạn sẽ rời mọi workspace, team, dự án và không thể đăng nhập lại bằng tài khoản này.')) return
+    setBusy(true)
+    setMessage(null)
+    try {
+      await api('/api/me', { method: 'DELETE', body: { password } })
+      onDeleted()
+    } catch (err) {
+      setMessage({ ok: false, text: errorMessage(err) })
+      setBusy(false)
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="stack">
+      <p className="muted small">
+        Tên bạn trong các công việc, tài liệu và tin nhắn cũ sẽ hiển thị là &quot;Người dùng đã xóa&quot;. Nếu bạn là chủ workspace, hãy chuyển quyền hoặc xóa workspace trước.
+      </p>
+      <Field label="Nhập mật khẩu để xác nhận" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+      {message && <Alert kind={message.ok ? 'success' : 'error'}>{message.text}</Alert>}
+      <button type="submit" className="button-danger" disabled={busy || !password}>
+        Xóa tài khoản
+      </button>
+    </form>
   )
 }
 

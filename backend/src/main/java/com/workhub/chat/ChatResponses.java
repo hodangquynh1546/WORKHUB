@@ -28,7 +28,16 @@ public final class ChatResponses {
 
 	/** {@code body} is null for a deleted message. */
 	public record MessageResponse(UUID id, UUID conversationId, UserRef sender, String body, ReplyPreview replyTo,
-			Instant createdAt, Instant editedAt, boolean deleted, List<ReactionResponse> reactions, List<UUID> mentions) {
+			Instant createdAt, Instant editedAt, boolean deleted, List<ReactionResponse> reactions, List<UUID> mentions,
+			List<AttachmentResponse> attachments) {
+	}
+
+	/** {@code image} is true only for files whose bytes really are a PNG, JPEG, WebP or GIF (checked at upload). */
+	public record AttachmentResponse(UUID id, String fileName, String contentType, long size, boolean image) {
+	}
+
+	/** When {@code userId} last read the conversation: everything sent before it has been seen. */
+	public record ReadReceipt(UUID userId, Instant lastReadAt) {
 	}
 
 	public record MessagePage(List<MessageResponse> items, boolean hasMore) {

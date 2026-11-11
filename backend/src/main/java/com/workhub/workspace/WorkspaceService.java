@@ -12,7 +12,9 @@ import com.workhub.common.Strings;
 import com.workhub.issue.IssueRepository;
 import com.workhub.project.ProjectMemberRepository;
 import com.workhub.team.TeamMemberRepository;
+import com.workhub.user.UserRepository;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,14 +35,21 @@ public class WorkspaceService {
 
 	private final IssueRepository issues;
 
+	private final UserRepository users;
+
+	private final PasswordEncoder passwordEncoder;
+
 	public WorkspaceService(AccessService access, WorkspaceRepository workspaces, WorkspaceMemberRepository members,
-			TeamMemberRepository teamMembers, ProjectMemberRepository projectMembers, IssueRepository issues) {
+			TeamMemberRepository teamMembers, ProjectMemberRepository projectMembers, IssueRepository issues,
+			UserRepository users, PasswordEncoder passwordEncoder) {
 		this.access = access;
 		this.workspaces = workspaces;
 		this.members = members;
 		this.teamMembers = teamMembers;
 		this.projectMembers = projectMembers;
 		this.issues = issues;
+		this.users = users;
+		this.passwordEncoder = passwordEncoder;
 	}
 
 	/** The creator becomes the workspace owner. */
@@ -79,6 +88,21 @@ public class WorkspaceService {
 		Workspace workspace = load(workspaceId);
 		confirmation.require(workspace.getName());
 		workspaces.delete(workspace);
+	}
+
+	/** The owner hands the workspace to another member and becomes an ADMIN; there is still exactly one OWNER. */
+	public void transferOwnership(UUID userId, UUID workspaceId, TransferOwnershipRequest request) {
+		access.workspace(userId, workspaceId).require(WorkspacePermission.TRANSFER_OWNERSHIP);
+		if (!passwordEncoder.matches(request.password(), users.findById(userId).orElseThrow().getPasswordHash())) {
+			throw ApiException.badRequest("INVALID_CURRENT_PASSWORD", "Current password is incorrect");
+		}
+		if (request.userId().equals(userId)) {
+			throw ApiException.badRequest("ALREADY_OWNER", "You already own this workspace");
+		}
+		WorkspaceMember next = requireMember(workspaceId, request.userId());
+		WorkspaceMember current = requireMember(workspaceId, userId);
+		current.changeRole(WorkspaceRole.ADMIN);
+		next.changeRole(WorkspaceRole.OWNER);
 	}
 
 	@Transactional(readOnly = true)

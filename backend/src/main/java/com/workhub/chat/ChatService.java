@@ -88,10 +88,14 @@ public class ChatService {
 
 	private final Clock clock;
 
+	private final ChatAttachmentRepository attachments;
+
 	ChatService(ConversationRepository conversations, ConversationMemberRepository members, ChatMessageRepository messages, MessageReactionRepository reactions, MessageMentionRepository mentions,
 			ConversationReadRepository reads, ChatMapper mapper, AccessService access, ProjectMemberRepository projectMembers,
 			TeamMemberRepository teamMembers, WorkspaceMemberRepository workspaceMembers, ProjectRepository projects,
-			TeamRepository teams, NotificationService notifications, RealtimeHub hub, Clock clock) {
+			TeamRepository teams, NotificationService notifications, RealtimeHub hub, Clock clock,
+			ChatAttachmentRepository attachments) {
+		this.attachments = attachments;
 		this.conversations = conversations;
 		this.members = members;
 		this.messages = messages;
@@ -250,18 +254,113 @@ public class ChatService {
 	}
 
 	public MessageResponse send(UUID userId, UUID conversationId, ChatRequests.Send request) {
+		return post(userId, conversationId, request.body(), request.replyToId(), request.mentionIds(), List.of());
+	}
+
+	/** A message carrying up to {@link #MAX_FILES} files ({@link #MAX_FILE_BYTES} each); the caption may be empty. */
+	public MessageResponse sendFiles(UUID userId, UUID conversationId, String caption, UUID replyToId, List<RawFile> files) {
+		if (files.isEmpty() || files.size() > MAX_FILES) {
+			throw ApiException.badRequest("FILE_COUNT", "A message takes between 1 and " + MAX_FILES + " files");
+		}
+		long total = 0;
+		List<FileUpload> uploads = new ArrayList<>();
+		for (RawFile raw : files) {
+			if (raw.data().length == 0) {
+				throw ApiException.badRequest("FILE_EMPTY", "The file is empty");
+			}
+			if (raw.data().length > MAX_FILE_BYTES) {
+				throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE", "File too large");
+			}
+			total += raw.data().length;
+			uploads.add(new FileUpload(safeName(raw.name()), verifiedType(raw.contentType(), raw.data()), raw.data()));
+		}
+		if (total > MAX_TOTAL_BYTES) {
+			throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "FILE_TOO_LARGE", "Files too large");
+		}
+		String text = (caption == null || caption.isBlank()) ? autoText(uploads) : caption;
+		if (text.strip().length() > ChatMessage.MAX_BODY) {
+			throw ApiException.badRequest("MESSAGE_TOO_LONG", "Message is too long");
+		}
+		return post(userId, conversationId, text, replyToId, List.of(), uploads);
+	}
+
+	/** The text of a message sent without a caption; the UI hides exactly this text under the files. */
+	static String autoText(List<FileUpload> files) {
+		return (files.size() == 1) ? "📎 " + files.get(0).name() : "📎 " + files.size() + " tệp";
+	}
+
+	public record RawFile(String name, String contentType, byte[] data) {
+	}
+
+	/** Who has read how far: a message is seen by everyone whose {@code lastReadAt} is at or after it. */
+	@Transactional(readOnly = true)
+	public List<ChatResponses.ReadReceipt> receipts(UUID userId, UUID conversationId) {
 		Conversation c = require(userId, conversationId);
 		Set<UUID> audience = memberIds(c);
-		Set<UUID> mentioned = new LinkedHashSet<>((request.mentionIds() == null) ? List.of() : request.mentionIds());
+		audience.remove(userId);
+		return reads.findAllByConversationId(conversationId).stream()
+			.filter((r) -> audience.contains(r.getUserId()))
+			.map((r) -> new ChatResponses.ReadReceipt(r.getUserId(), r.getLastReadAt()))
+			.toList();
+	}
+
+	private final java.util.concurrent.ConcurrentHashMap<String, Long> typingSeen = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/** "X is typing": relayed to the other members, at most once per 1.5 s per person and conversation. Nothing is stored. */
+	/** Not transactional: an outsider's refused access check would otherwise mark a shared transaction rollback-only. */
+	@Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+	public void typing(UUID userId, UUID conversationId) {
+		Conversation c;
+		try {
+			c = require(userId, conversationId);
+		}
+		catch (ApiException ex) {
+			return;
+		}
+		long now = clock.millis();
+		if (typingSeen.size() > 5000) {
+			typingSeen.values().removeIf((t) -> now - t > 10_000);
+		}
+		Long last = typingSeen.put(userId + ":" + conversationId, now);
+		if (last != null && now - last < 1500) {
+			typingSeen.put(userId + ":" + conversationId, last);
+			return;
+		}
+		Set<UUID> audience = memberIds(c);
+		audience.remove(userId);
+		UserRef who = mapper.userRefs(List.of(userId)).get(userId);
+		hub.sendToUsers(audience, Map.of("type", "chat.typing", "conversationId", conversationId, "userId", userId,
+				"name", (who == null) ? "Ai đó" : who.fullName()));
+	}
+
+	/** Downloads need the bearer token and the same access as reading the conversation; deleted messages hide their file. */
+	@Transactional(readOnly = true)
+	public ChatAttachment attachment(UUID userId, UUID attachmentId) {
+		ChatAttachment file = attachments.findById(attachmentId).orElseThrow(ChatService::messageNotFound);
+		ChatMessage message = messages.findById(file.getMessageId()).orElseThrow(ChatService::messageNotFound);
+		require(userId, message.getConversationId());
+		if (message.getDeletedAt() != null) {
+			throw messageNotFound();
+		}
+		return file;
+	}
+
+	private MessageResponse post(UUID userId, UUID conversationId, String body, UUID replyToId, List<UUID> mentionIds, List<FileUpload> files) {
+		Conversation c = require(userId, conversationId);
+		Set<UUID> audience = memberIds(c);
+		Set<UUID> mentioned = new LinkedHashSet<>((mentionIds == null) ? List.of() : mentionIds);
 		mentioned.remove(userId);
 		if (!audience.containsAll(mentioned)) {
 			throw ApiException.badRequest("MENTION_NOT_MEMBER", "Only people in this conversation can be mentioned");
 		}
-		if (request.replyToId() != null
-				&& messages.findById(request.replyToId()).filter((m) -> m.getConversationId().equals(conversationId)).isEmpty()) {
+		if (replyToId != null
+				&& messages.findById(replyToId).filter((m) -> m.getConversationId().equals(conversationId)).isEmpty()) {
 			throw ApiException.badRequest("INVALID_REPLY", "The message you reply to is not in this conversation");
 		}
-		ChatMessage saved = messages.saveAndFlush(new ChatMessage(conversationId, userId, request.body().strip(), request.replyToId()));
+		ChatMessage saved = messages.saveAndFlush(new ChatMessage(conversationId, userId, body.strip(), replyToId));
+		for (int i = 0; i < files.size(); i++) {
+			attachments.save(new ChatAttachment(saved.getId(), i, files.get(i).name(), files.get(i).contentType(), files.get(i).data()));
+		}
 		mentioned.forEach((id) -> mentions.save(new MessageMention(saved.getId(), id)));
 		c.touch(saved.getCreatedAt());
 		markReadAt(conversationId, userId, saved.getCreatedAt());
@@ -272,6 +371,40 @@ public class ChatService {
 				"/chat/" + conversationId, c.getProjectId(), userId, null);
 		afterCommit(() -> hub.sendToUsers(audience, event("chat.message", conversationId, "message", response)));
 		return response;
+	}
+
+	private record FileUpload(String name, String contentType, byte[] data) {
+	}
+
+	static final int MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+	static final int MAX_TOTAL_BYTES = 30 * 1024 * 1024;
+
+	static final int MAX_FILES = 10;
+
+	private static String safeName(String original) {
+		String name = (original == null) ? "" : original.replace('\\', '/');
+		name = name.substring(name.lastIndexOf('/') + 1).replaceAll("[\\p{Cntrl}]", "").strip();
+		if (name.isEmpty()) {
+			name = "file";
+		}
+		return (name.length() > 200) ? name.substring(name.length() - 200) : name;
+	}
+
+	/** The type is client-supplied: an image type is only kept when the bytes really are that image. */
+	private static String verifiedType(String claimed, byte[] d) {
+		if (claimed == null || !ChatMapper.IMAGE_TYPES.contains(claimed)) {
+			return "application/octet-stream";
+		}
+		boolean ok = switch (claimed) {
+			case "image/jpeg" -> d.length > 3 && (d[0] & 0xFF) == 0xFF && (d[1] & 0xFF) == 0xD8 && (d[2] & 0xFF) == 0xFF;
+			case "image/png" -> d.length > 8 && (d[0] & 0xFF) == 0x89 && d[1] == 'P' && d[2] == 'N' && d[3] == 'G';
+			case "image/gif" -> d.length > 6 && d[0] == 'G' && d[1] == 'I' && d[2] == 'F' && d[3] == '8';
+			case "image/webp" -> d.length > 12 && d[0] == 'R' && d[1] == 'I' && d[2] == 'F' && d[3] == 'F' && d[8] == 'W'
+					&& d[9] == 'E' && d[10] == 'B' && d[11] == 'P';
+			default -> false;
+		};
+		return ok ? claimed : "application/octet-stream";
 	}
 
 	public MessageResponse edit(UUID userId, UUID messageId, String body) {
@@ -312,6 +445,11 @@ public class ChatService {
 		messages.flush();
 		long total = unreadTotal(userId);
 		afterCommit(() -> hub.sendToUser(userId, Map.of("type", "chat.read", "conversationId", conversationId, "unread", total)));
+		Conversation c = conversations.findById(conversationId).orElseThrow();
+		Set<UUID> others = memberIds(c);
+		others.remove(userId);
+		Instant at = clock.instant();
+		afterCommit(() -> hub.sendToUsers(others, Map.of("type", "chat.seen", "conversationId", conversationId, "userId", userId, "at", at.toString())));
 		return total;
 	}
 

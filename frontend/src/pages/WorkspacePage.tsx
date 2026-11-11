@@ -62,6 +62,7 @@ export function WorkspacePage() {
           {can('MANAGE_MEMBERS') && <InvitationsSection workspace={workspace} />}
           {can('UPDATE_SETTINGS') && <WorkspaceSettings workspace={workspace} onSaved={reload} />}
           {workspace.myRole !== 'OWNER' && <LeaveWorkspace workspace={workspace} />}
+          {can('TRANSFER_OWNERSHIP') && <TransferOwnership workspace={workspace} onDone={reload} />}
           {can('DELETE_WORKSPACE') && (
             <DeleteZone
               title="Xóa workspace"
@@ -275,6 +276,63 @@ function WorkspaceSettings({ workspace, onSaved }: { workspace: Workspace; onSav
           Lưu
         </button>
       </form>
+    </section>
+  )
+}
+
+function TransferOwnership({ workspace, onDone }: { workspace: Workspace; onDone: () => void }) {
+  const { user } = useAuth()
+  const { data: members } = useResource<WorkspaceMember[]>(`/api/workspaces/${workspace.id}/members`)
+  const [userId, setUserId] = useState('')
+  const [password, setPassword] = useState('')
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const candidates = members?.filter((m) => m.userId !== user?.id) ?? []
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    const target = candidates.find((m) => m.userId === userId)
+    if (!target || !window.confirm(`Chuyển quyền chủ sở hữu cho ${target.fullName}? Bạn sẽ trở thành Quản trị viên và không thể tự lấy lại quyền này.`)) return
+    setBusy(true)
+    setMessage(null)
+    try {
+      await api(`/api/workspaces/${workspace.id}/transfer-ownership`, { method: 'POST', body: { userId, password } })
+      setPassword('')
+      setMessage({ ok: true, text: `Đã chuyển quyền chủ sở hữu cho ${target.fullName}.` })
+      onDone()
+    } catch (err) {
+      setMessage({ ok: false, text: errorMessage(err) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="card stack">
+      <h2>Chuyển quyền chủ sở hữu</h2>
+      <p className="muted">Người nhận trở thành chủ workspace (xóa workspace, chuyển quyền, đổi vai trò quản trị viên). Bạn sẽ còn là Quản trị viên.</p>
+      {candidates.length === 0 ? (
+        <p className="muted small">Workspace chưa có thành viên nào khác.</p>
+      ) : (
+        <form onSubmit={submit} className="stack">
+          <label className="field">
+            <span>Chủ sở hữu mới</span>
+            <select required value={userId} onChange={(e) => setUserId(e.target.value)}>
+              <option value="">Chọn thành viên…</option>
+              {candidates.map((m) => (
+                <option key={m.userId} value={m.userId}>
+                  {m.fullName} ({m.email})
+                </option>
+              ))}
+            </select>
+          </label>
+          <Field label="Nhập mật khẩu của bạn để xác nhận" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+          {message && <Alert kind={message.ok ? 'success' : 'error'}>{message.text}</Alert>}
+          <button type="submit" className="button-danger" disabled={busy || !userId || !password}>
+            Chuyển quyền
+          </button>
+        </form>
+      )}
     </section>
   )
 }

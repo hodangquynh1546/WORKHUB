@@ -7,6 +7,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import com.workhub.access.AccessService;
+import com.workhub.chat.ChatService;
 import com.workhub.common.ApiException;
 import com.workhub.document.CollabSessions;
 
@@ -51,7 +52,11 @@ public class RealtimeSocketHandler extends TextWebSocketHandler {
 
 	private final CollabSessions collab;
 
-	RealtimeSocketHandler(RealtimeHub hub, JwtDecoder jwtDecoder, AccessService access, JsonMapper json, CollabSessions collab) {
+	private final ChatService chat;
+
+	RealtimeSocketHandler(RealtimeHub hub, JwtDecoder jwtDecoder, AccessService access, JsonMapper json, CollabSessions collab,
+			ChatService chat) {
+		this.chat = chat;
 		this.collab = collab;
 		this.hub = hub;
 		this.jwtDecoder = jwtDecoder;
@@ -104,6 +109,12 @@ public class RealtimeSocketHandler extends TextWebSocketHandler {
 				}
 				hub.subscribe(session, projectId, on);
 				reply(session, Map.of("type", on ? "subscribed" : "unsubscribed", "projectId", projectId));
+			}
+			case "chat.typing" -> {
+				UUID conversationId = parseId(frame.path("conversationId").asString(""));
+				if (conversationId != null) {
+					chat.typing(userId, conversationId);
+				}
 			}
 			case "doc.join", "doc.leave", "doc.update", "doc.awareness" -> {
 				UUID documentId = parseId(frame.path("documentId").asString(""));

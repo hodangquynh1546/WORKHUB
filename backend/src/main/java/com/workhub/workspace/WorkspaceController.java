@@ -60,6 +60,13 @@ public class WorkspaceController {
 		workspaceService.delete(CurrentUser.id(jwt), workspaceId, confirmation);
 	}
 
+	@PostMapping("/{workspaceId}/transfer-ownership")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void transferOwnership(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID workspaceId,
+			@Valid @RequestBody TransferOwnershipRequest request) {
+		workspaceService.transferOwnership(CurrentUser.id(jwt), workspaceId, request);
+	}
+
 	@GetMapping("/{workspaceId}/members")
 	public List<WorkspaceMemberResponse> members(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID workspaceId) {
 		return workspaceService.listMembers(CurrentUser.id(jwt), workspaceId);

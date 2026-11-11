@@ -1,5 +1,6 @@
 package com.workhub.alert;
 
+import com.workhub.audit.AuditRetentionService;
 import com.workhub.meeting.MeetingReminderService;
 
 import org.slf4j.Logger;
@@ -24,7 +25,10 @@ class Schedulers {
 
 	private final MeetingReminderService reminders;
 
-	Schedulers(AlertService alerts, MeetingReminderService reminders) {
+	private final AuditRetentionService auditRetention;
+
+	Schedulers(AlertService alerts, MeetingReminderService reminders, AuditRetentionService auditRetention) {
+		this.auditRetention = auditRetention;
 		this.alerts = alerts;
 		this.reminders = reminders;
 	}
@@ -37,6 +41,11 @@ class Schedulers {
 	@Scheduled(fixedDelayString = "${workhub.reminders.interval:60000}", initialDelay = 30000)
 	void meetingReminders() {
 		reminders.run();
+	}
+
+	@Scheduled(cron = "${workhub.audit.purge-cron:0 15 3 * * *}")
+	void auditRetention() {
+		auditRetention.purge();
 	}
 
 }

@@ -41,6 +41,10 @@ public class ConversationRead {
 		this.lastReadAt = at;
 	}
 
+	public UUID getUserId() {
+		return userId;
+	}
+
 	public UUID getConversationId() {
 		return conversationId;
 	}

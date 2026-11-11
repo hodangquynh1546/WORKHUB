@@ -85,9 +85,8 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   return data as T
 }
 
-/** Downloads a file that needs the bearer token (so a plain link cannot): fetch it, then save the blob. */
-/** `fileName` defaults to the one the server suggests in Content-Disposition. */
-export async function downloadFile(path: string, fileName?: string): Promise<void> {
+/** Fetches a protected file with the bearer token (retrying once after a refresh). */
+export async function fetchProtected(path: string): Promise<Response> {
   const send = () => fetch(path, { headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {} })
   let res = await send()
   if (res.status === 401 && accessToken && (await refreshSession())) res = await send()
@@ -95,6 +94,13 @@ export async function downloadFile(path: string, fileName?: string): Promise<voi
     const data = await res.json().catch(() => null)
     throw new ApiError(res.status, data?.detail ?? `HTTP ${res.status}`, data?.code, data?.errors)
   }
+  return res
+}
+
+/** Downloads a file that needs the bearer token (so a plain link cannot): fetch it, then save the blob. */
+/** `fileName` defaults to the one the server suggests in Content-Disposition. */
+export async function downloadFile(path: string, fileName?: string): Promise<void> {
+  const res = await fetchProtected(path)
   const suggested = /filename="?([^";]+)"?/.exec(res.headers.get('Content-Disposition') ?? '')?.[1]
   const url = URL.createObjectURL(await res.blob())
   const link = document.createElement('a')

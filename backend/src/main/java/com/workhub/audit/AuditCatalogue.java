@@ -20,12 +20,15 @@ final class AuditCatalogue {
 			// ---- accounts ----
 			of("POST", "/api/auth/register", "auth.register").actorByEmail(),
 			of("POST", "/api/auth/login", "auth.login").actorByEmail().failures(401).failureAction("auth.login_failed"),
+			of("DELETE", "/api/me", "account.delete"),
 			of("POST", "/api/me/password", "auth.password_changed"),
 
 			// ---- workspaces and invitations ----
 			of("POST", "/api/workspaces", "workspace.create").created("WORKSPACE").scopeFromResponse(),
 			// The workspace is gone afterwards, so the row has no workspace scope (it stays in the actor's own trail) and the name comes from the typed confirmation.
 			of("DELETE", "/api/workspaces/{workspace}", "workspace.delete").target("WORKSPACE", "workspace").detail("name"),
+			of("POST", "/api/workspaces/{workspace}/transfer-ownership", "workspace.ownership_transfer").target("WORKSPACE", "workspace")
+				.scope("workspaces", "workspace").detail("userId"),
 			of("PUT", "/api/workspaces/{workspace}", "workspace.update").target("WORKSPACE", "workspace").scope("workspaces", "workspace"),
 			of("PUT", "/api/workspaces/{workspace}/members/{user}", "workspace.member_role_change").target("USER", "user")
 				.scope("workspaces", "workspace").detail("role"),

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { api } from '../../api/client'
+import { api, downloadFile, fetchProtected } from '../../api/client'
 import { errorMessage } from '../../api/errors'
-import type { ChatMessage, ChatMessagePage, ConversationSummary, UserRef } from '../../api/types'
+import type { ChatAttachment, ChatMessage, ChatMessagePage, ChatReceipt, ConversationSummary, UserRef } from '../../api/types'
 import { useResource } from '../../api/useResource'
 import { useAuth } from '../../auth/AuthContext'
 import { Alert } from '../../components/Form'
 import { Avatar } from '../../components/Avatar'
 import { useRealtime, type Frame } from '../../realtime/RealtimeContext'
 import { extractMentions, mentionQuery } from './mentions'
+import { typingLabel } from './typing'
 
 const EMOJIS = ['👍', '❤️', '😄', '🎉', '🙏', '👀']
 const PAGE = 40
@@ -26,6 +27,8 @@ function withMentions(body: string, people: UserRef[]): ReactNode[] {
 export function MessagePane({ conversation, online, onBack, onChanged }: { conversation: ConversationSummary; online: boolean | null; onBack: () => void; onChanged: () => void }) {
   const { user } = useAuth()
   const { on } = useRealtime()
+  const [typing, setTyping] = useState<Record<string, { name: string; until: number }>>({})
+  const [receipts, setReceipts] = useState<Record<string, string>>({})
   const [messages, setMessages] = useState<ChatMessage[] | null>(null)
   const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -39,8 +42,15 @@ export function MessagePane({ conversation, online, onBack, onChanged }: { conve
     api(`/api/chat/conversations/${id}/read`, { method: 'POST' }).then(onChanged).catch(() => {})
   }, [id, onChanged])
 
+  const loadReceipts = useCallback(() => {
+    api<ChatReceipt[]>(`/api/chat/conversations/${id}/receipts`)
+      .then((list) => setReceipts(Object.fromEntries(list.map((r) => [r.userId, r.lastReadAt]))))
+      .catch(() => {})
+  }, [id])
+
   const loadLatest = useCallback(async () => {
     try {
+      loadReceipts()
       const page = await api<ChatMessagePage>(`/api/chat/conversations/${id}/messages?size=${PAGE}`)
       setMessages(page.items)
       setHasMore(page.hasMore)
@@ -49,7 +59,7 @@ export function MessagePane({ conversation, online, onBack, onChanged }: { conve
     } catch (err) {
       setError(errorMessage(err))
     }
-  }, [id, markRead])
+  }, [id, markRead, loadReceipts])
 
   useEffect(() => {
     const timer = setTimeout(() => void loadLatest(), 0)
@@ -63,6 +73,7 @@ export function MessagePane({ conversation, online, onBack, onChanged }: { conve
       on('chat.message', (frame) => {
         if (!mine(frame)) return
         const message = frame.message as ChatMessage
+        if (message.sender) setTyping((t) => (message.sender!.id in t ? Object.fromEntries(Object.entries(t).filter(([k]) => k !== message.sender!.id)) : t))
         setMessages((list) => (list && !list.some((m) => m.id === message.id) ? [...list, message] : list))
         if (message.sender?.id !== user?.id) markRead()
       }),
@@ -75,10 +86,24 @@ export function MessagePane({ conversation, online, onBack, onChanged }: { conve
         if (!mine(frame)) return
         setMessages((list) => list?.map((m) => (m.id === frame.messageId ? { ...m, deleted: true, body: null, reactions: [], mentions: [] } : m)) ?? list)
       }),
+      on('chat.typing', (frame) => {
+        if (!mine(frame) || frame.userId === user?.id) return
+        setTyping((t) => ({ ...t, [frame.userId as string]: { name: String(frame.name ?? ''), until: Date.now() + 4000 } }))
+      }),
+      on('chat.seen', (frame) => {
+        if (!mine(frame)) return
+        setReceipts((r) => ({ ...r, [frame.userId as string]: String(frame.at) }))
+      }),
       on('reconnected', () => void loadLatest()),
     ]
     return () => offs.forEach((off) => off())
   }, [on, id, user?.id, markRead, loadLatest])
+
+  // A person stops "typing" 4 s after their last signal; a new message from them ends it at once.
+  useEffect(() => {
+    const timer = setInterval(() => setTyping((t) => (Object.values(t).some((x) => x.until < Date.now()) ? Object.fromEntries(Object.entries(t).filter(([, x]) => x.until >= Date.now())) : t)), 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Keep the view at the bottom for new messages; when older ones were prepended, keep what the reader was looking at.
   useLayoutEffect(() => {
@@ -116,6 +141,20 @@ export function MessagePane({ conversation, online, onBack, onChanged }: { conve
     }
   }
 
+  // Each person who has read up to some point is shown under the last of the caller's messages they have seen.
+  const seenBy = useMemo(() => {
+    const map = new Map<string, UserRef[]>()
+    const mineList = (messages ?? []).filter((m) => m.sender?.id === user?.id && !m.deleted)
+    for (const [readerId, readAt] of Object.entries(receipts)) {
+      const reader = byId.get(readerId)
+      if (!reader) continue
+      const last = [...mineList].reverse().find((m) => new Date(m.createdAt).getTime() <= new Date(readAt).getTime())
+      if (last) map.set(last.id, [...(map.get(last.id) ?? []), reader])
+    }
+    return map
+  }, [messages, receipts, byId, user?.id])
+  const typingNames = Object.values(typing).map((t) => t.name)
+
   const rows: ReactNode[] = []
   let lastDay = ''
   let lastSender = ''
@@ -131,7 +170,7 @@ export function MessagePane({ conversation, online, onBack, onChanged }: { conve
     const compact = m.sender?.id === lastSender && at - lastAt < 5 * 60_000 && !m.replyTo
     lastSender = m.sender?.id ?? ''
     lastAt = at
-    rows.push(<Message key={m.id} message={m} compact={compact} selfId={user?.id} people={members ?? []} byId={byId} onReply={() => setReplyTo(m)} act={act} />)
+    rows.push(<Message key={m.id} message={m} compact={compact} selfId={user?.id} people={members ?? []} byId={byId} onReply={() => setReplyTo(m)} act={act} seenBy={seenBy.get(m.id) ?? []} direct={conversation.kind === 'DIRECT'} />)
   }
 
   return (
@@ -165,6 +204,20 @@ export function MessagePane({ conversation, online, onBack, onChanged }: { conve
         {rows}
       </div>
       <Alert>{error}</Alert>
+      <div className="typing" aria-live="polite">
+        {typingNames.length > 0 && (
+          <>
+            <span className="typing-dots" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+            <span className="small muted">
+              {typingLabel(typingNames)}
+            </span>
+          </>
+        )}
+      </div>
       <Composer
         conversationId={id}
         people={members ?? []}
@@ -181,7 +234,7 @@ export function MessagePane({ conversation, online, onBack, onChanged }: { conve
   )
 }
 
-function Message({ message: m, compact, selfId, people, byId, onReply, act }: { message: ChatMessage; compact: boolean; selfId?: string; people: UserRef[]; byId: Map<string, UserRef>; onReply: () => void; act: (action: () => Promise<unknown>) => Promise<void> }) {
+function Message({ message: m, compact, selfId, people, byId, onReply, act, seenBy, direct }: { message: ChatMessage; compact: boolean; selfId?: string; people: UserRef[]; byId: Map<string, UserRef>; onReply: () => void; act: (action: () => Promise<unknown>) => Promise<void>; seenBy: UserRef[]; direct: boolean }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const own = m.sender?.id === selfId
@@ -228,7 +281,31 @@ function Message({ message: m, compact, selfId, people, byId, onReply, act }: { 
             </div>
           </form>
         ) : (
-          <p className="prewrap msg-text">{withMentions(m.body ?? '', mentionedPeople.length ? mentionedPeople : people)}</p>
+          <>
+            {!(m.attachments.length > 0 && m.body === (m.attachments.length === 1 ? `📎 ${m.attachments[0].fileName}` : `📎 ${m.attachments.length} tệp`)) && (
+              <p className="prewrap msg-text">{withMentions(m.body ?? '', mentionedPeople.length ? mentionedPeople : people)}</p>
+            )}
+            {m.attachments.map((file) => (
+              <MessageAttachment key={file.id} file={file} />
+            ))}
+          </>
+        )}
+        {seenBy.length > 0 && (
+          <div className="msg-seen small muted" title={`Đã xem bởi ${seenBy.map((p) => p.fullName).join(', ')}`}>
+            {direct ? (
+              'Đã xem'
+            ) : (
+              <>
+                Đã xem
+                <span className="msg-seen-avatars">
+                  {seenBy.slice(0, 5).map((p) => (
+                    <Avatar key={p.id} name={p.fullName} url={p.avatarUrl} />
+                  ))}
+                </span>
+                {seenBy.length > 5 && <span>+{seenBy.length - 5}</span>}
+              </>
+            )}
+          </div>
         )}
         {m.reactions.length > 0 && (
           <div className="msg-reactions">
@@ -266,10 +343,61 @@ function Message({ message: m, compact, selfId, people, byId, onReply, act }: { 
   )
 }
 
+const MAX_FILE_BYTES = 10 * 1024 * 1024
+const MAX_TOTAL_BYTES = 30 * 1024 * 1024
+const MAX_FILES = 10
+
+function formatSize(bytes: number): string {
+  return bytes < 1024 ? `${bytes} B` : bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}
+
+/** An image is fetched with the token and shown from a blob (an <img> cannot send the bearer header); other files download on click. */
+function MessageAttachment({ file }: { file: ChatAttachment }) {
+  const [src, setSrc] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    if (!file.image) return
+    let url: string | null = null
+    let cancelled = false
+    fetchProtected(`/api/chat/attachments/${file.id}`)
+      .then((res) => res.arrayBuffer())
+      .then((bytes) => {
+        if (cancelled) return
+        url = URL.createObjectURL(new Blob([bytes], { type: file.contentType }))
+        setSrc(url)
+      })
+      .catch(() => !cancelled && setFailed(true))
+    return () => {
+      cancelled = true
+      if (url) URL.revokeObjectURL(url)
+    }
+  }, [file.id, file.image, file.contentType])
+
+  const download = () => downloadFile(`/api/chat/attachments/${file.id}`, file.fileName).catch(() => setFailed(true))
+  return (
+    <div className="msg-attachment">
+      {file.image && src && (
+        <button type="button" className="msg-image" onClick={download} aria-label={`Tải ${file.fileName}`}>
+          <img src={src} alt={file.fileName} loading="lazy" />
+        </button>
+      )}
+      <button type="button" className="msg-file button-secondary button-small" onClick={download}>
+        📎 {file.fileName} <span className="muted">({formatSize(file.size)})</span>
+      </button>
+      {failed && <span className="small" role="alert">Không tải được tệp.</span>}
+    </div>
+  )
+}
+
 function Composer({ conversationId, people, selfId, replyTo, onCancelReply, onSent, onError }: { conversationId: string; people: UserRef[]; selfId?: string; replyTo: ChatMessage | null; onCancelReply: () => void; onSent: () => void; onError: (message: string | null) => void }) {
   const [text, setText] = useState('')
   const [caret, setCaret] = useState(0)
   const [busy, setBusy] = useState(false)
+  const [files, setFiles] = useState<File[]>([])
+  const { send: sendFrame } = useRealtime()
+  const lastTyping = useRef(0)
+  const picker = useRef<HTMLInputElement>(null)
   const field = useRef<HTMLTextAreaElement>(null)
   const query = mentionQuery(text, caret)
   const suggestions = query ? people.filter((p) => p.id !== selfId && p.fullName.toLowerCase().includes(query.query)).slice(0, 5) : []
@@ -289,14 +417,23 @@ function Composer({ conversationId, people, selfId, replyTo, onCancelReply, onSe
 
   async function send() {
     const body = text.trim()
-    if (!body || busy) return
+    if ((!body && files.length === 0) || busy) return
     setBusy(true)
     onError(null)
     try {
-      await api(`/api/chat/conversations/${conversationId}/messages`, {
-        method: 'POST',
-        body: { body, replyToId: replyTo?.id ?? null, mentionIds: extractMentions(body, people, selfId) },
-      })
+      if (files.length > 0) {
+        const form = new FormData()
+        files.forEach((f) => form.append('files', f))
+        if (body) form.append('body', body)
+        if (replyTo) form.append('replyToId', replyTo.id)
+        await api(`/api/chat/conversations/${conversationId}/attachments`, { method: 'POST', body: form })
+        setFiles([])
+      } else {
+        await api(`/api/chat/conversations/${conversationId}/messages`, {
+          method: 'POST',
+          body: { body, replyToId: replyTo?.id ?? null, mentionIds: extractMentions(body, people, selfId) },
+        })
+      }
       setText('')
       setCaret(0)
       onSent()
@@ -351,7 +488,44 @@ function Composer({ conversationId, people, selfId, replyTo, onCancelReply, onSe
           ))}
         </ul>
       )}
+      {files.length > 0 && (
+        <ul className="composer-files">
+          {files.map((f, i) => (
+            <li key={`${f.name}-${i}`} className="composer-reply">
+              <span className="small">📎 {f.name} ({formatSize(f.size)})</span>
+              <button type="button" className="link-button small" onClick={() => setFiles((list) => list.filter((_, j) => j !== i))} aria-label={`Bỏ ${f.name}`}>
+                Bỏ tệp
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="composer-row">
+        <input
+          ref={picker}
+          type="file"
+          multiple
+          hidden
+          aria-label="Chọn tệp đính kèm"
+          onChange={(e) => {
+            const picked = Array.from(e.target.files ?? [])
+            e.target.value = ''
+            const next = [...files, ...picked]
+            if (next.length > MAX_FILES) {
+              onError(`Mỗi tin nhắn tối đa ${MAX_FILES} tệp.`)
+              return
+            }
+            if (next.some((f) => f.size > MAX_FILE_BYTES) || next.reduce((sum, f) => sum + f.size, 0) > MAX_TOTAL_BYTES) {
+              onError('Tệp quá lớn (tối đa 10 MB mỗi tệp, 30 MB mỗi tin nhắn).')
+              return
+            }
+            onError(null)
+            setFiles(next)
+          }}
+        />
+        <button type="button" className="button-secondary" onClick={() => picker.current?.click()} aria-label="Đính kèm tệp" title="Đính kèm tệp">
+          📎
+        </button>
         <textarea
           ref={field}
           rows={2}
@@ -359,12 +533,21 @@ function Composer({ conversationId, people, selfId, replyTo, onCancelReply, onSe
           maxLength={4000}
           placeholder="Nhập tin nhắn… (@ để nhắc đến, Enter để gửi, Shift+Enter xuống dòng)"
           aria-label="Tin nhắn"
-          onChange={(e) => (setText(e.target.value), setCaret(e.target.selectionStart), setChoice(0))}
+          onChange={(e) => {
+            setText(e.target.value)
+            setCaret(e.target.selectionStart)
+            setChoice(0)
+            // Tell the others we are typing, at most every 2.5 s.
+            if (e.target.value.trim() && Date.now() - lastTyping.current > 2500) {
+              lastTyping.current = Date.now()
+              sendFrame({ type: 'chat.typing', conversationId })
+            }
+          }}
           onKeyDown={onKeyDown}
           onKeyUp={(e) => setCaret(e.currentTarget.selectionStart)}
           onClick={(e) => setCaret(e.currentTarget.selectionStart)}
         />
-        <button type="button" onClick={send} disabled={busy || !text.trim()}>
+        <button type="button" onClick={send} disabled={busy || (!text.trim() && files.length === 0)}>
           Gửi
         </button>
       </div>

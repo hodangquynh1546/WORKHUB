@@ -16,6 +16,8 @@ public enum WorkspacePermission {
 	/** Create teams and act as lead of every team. */
 	MANAGE_TEAMS,
 	/** Delete the whole workspace with everything in it (owner only). */
-	DELETE_WORKSPACE
+	DELETE_WORKSPACE,
+	/** Hand the workspace over to another member (owner only). */
+	TRANSFER_OWNERSHIP
 
 }

@@ -93,6 +93,36 @@ public class ChatController {
 		return chat.send(CurrentUser.id(jwt), id, request);
 	}
 
+	@PostMapping(path = "/api/chat/conversations/{id}/attachments", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+	@ResponseStatus(HttpStatus.CREATED)
+	public MessageResponse sendFiles(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+			@RequestParam("files") List<org.springframework.web.multipart.MultipartFile> files,
+			@RequestParam(value = "body", required = false) String body,
+			@RequestParam(value = "replyToId", required = false) UUID replyToId) throws java.io.IOException {
+		List<ChatService.RawFile> raw = new java.util.ArrayList<>();
+		for (org.springframework.web.multipart.MultipartFile file : files) {
+			raw.add(new ChatService.RawFile(file.getOriginalFilename(), file.getContentType(), file.getBytes()));
+		}
+		return chat.sendFiles(CurrentUser.id(jwt), id, body, replyToId, raw);
+	}
+
+	@GetMapping("/api/chat/conversations/{id}/receipts")
+	public List<ChatResponses.ReadReceipt> receipts(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+		return chat.receipts(CurrentUser.id(jwt), id);
+	}
+
+	/** Always sent as a download; the UI shows images from the blob it fetches here. */
+	@GetMapping("/api/chat/attachments/{attachmentId}")
+	public org.springframework.http.ResponseEntity<byte[]> download(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID attachmentId) {
+		ChatAttachment file = chat.attachment(CurrentUser.id(jwt), attachmentId);
+		return org.springframework.http.ResponseEntity.ok()
+			.contentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM)
+			.header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+					org.springframework.http.ContentDisposition.attachment().filename(file.getFileName(), java.nio.charset.StandardCharsets.UTF_8).build().toString())
+			.header("Cache-Control", "private, max-age=3600")
+			.body(file.getData());
+	}
+
 	@PutMapping("/api/chat/messages/{id}")
 	public MessageResponse edit(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, @Valid @RequestBody ChatRequests.Edit request) {
 		return chat.edit(CurrentUser.id(jwt), id, request.body());

@@ -27,6 +27,9 @@ public final class AuthRequests {
 	public record ResetPassword(@NotBlank String token, @NotNull @Size(min = 8, max = 72) String newPassword) {
 	}
 
+	public record DeleteAccount(@NotNull String password) {
+	}
+
 	public record ChangePassword(@NotNull String currentPassword,
 			@NotNull @Size(min = 8, max = 72) String newPassword) {
 	}
