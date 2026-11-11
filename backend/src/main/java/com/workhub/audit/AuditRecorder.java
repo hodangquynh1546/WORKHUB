@@ -120,6 +120,16 @@ class AuditRecorder {
 			if (body != null && body.has(key) && body.get(key).isValueNode() && !body.get(key).isNull()) {
 				value = body.get(key).asString("");
 			}
+			else if (body != null && body.has(key) && body.get(key).isArray()) {
+				// A list of plain values (e.g. the roles of a member) is recorded comma-separated.
+				List<String> items = new ArrayList<>();
+				body.get(key).forEach((item) -> {
+					if (item.isValueNode() && !item.isNull()) {
+						items.add(item.asString(""));
+					}
+				});
+				value = String.join(",", items);
+			}
 			else if (request.getParameter(key) != null) {
 				value = request.getParameter(key);
 			}

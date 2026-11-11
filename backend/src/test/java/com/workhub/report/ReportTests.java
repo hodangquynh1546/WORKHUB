@@ -52,7 +52,7 @@ class ReportTests {
 	@Test
 	void chartsCombineTheRecordedStateWithAnIdealLine() throws Exception {
 		Fixture f = fixture();
-		LocalDate start = LocalDate.now();
+		LocalDate start = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
 		LocalDate end = start.plusDays(13);
 		UUID sprint = createSprint(f, start, end);
 		UUID a = issue(f, "TASK", "A", 5);
@@ -99,7 +99,7 @@ class ReportTests {
 	@Test
 	void scopeAddedAfterTheStartShowsInTheScopeLineButNotInTheCommitment() throws Exception {
 		Fixture f = fixture();
-		UUID sprint = createSprint(f, LocalDate.now(), LocalDate.now().plusDays(6));
+		UUID sprint = createSprint(f, LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")), LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(6));
 		add(f, sprint, issue(f, "TASK", "A", 5));
 		start(f, sprint);
 		add(f, sprint, issue(f, "TASK", "Late", 3));
@@ -112,7 +112,7 @@ class ReportTests {
 	@Test
 	void outsidersCannotSeeReports() throws Exception {
 		Fixture f = fixture();
-		UUID sprint = createSprint(f, LocalDate.now(), LocalDate.now().plusDays(6));
+		UUID sprint = createSprint(f, LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")), LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(6));
 		Session outsider = TestApi.register(mockMvc);
 
 		mockMvc.perform(get("/api/sprints/" + sprint + "/charts").header("Authorization", outsider.bearer()))
@@ -213,7 +213,7 @@ class ReportTests {
 
 	/** Creates a sprint with one issue of {@code points}, starts it, optionally finishes the issue, completes it. */
 	private void runSprint(Fixture f, String name, int points, boolean finish) throws Exception {
-		LocalDate today = LocalDate.now();
+		LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
 		UUID sprint = createSprint(f, name, today, today.plusDays(6));
 		UUID issue = issue(f, "TASK", name + " work", points);
 		add(f, sprint, issue);

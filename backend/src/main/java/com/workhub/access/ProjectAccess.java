@@ -13,10 +13,10 @@ import com.workhub.workspace.WorkspaceRole;
 
 /**
  * The caller's standing in a project. {@code teamRole} is their role in the owning team and {@code projectRole}
- * their role in the project; either may be null.
+ * their roles in the project (a member may hold several, empty when they are not a member).
  */
 public record ProjectAccess(Project project, UUID userId, WorkspaceRole workspaceRole, TeamRole teamRole,
-		ProjectRole projectRole) {
+		Set<ProjectRole> projectRoles) {
 
 	private static final Set<ProjectPermission> ALL = Collections
 		.unmodifiableSet(EnumSet.allOf(ProjectPermission.class));
@@ -29,18 +29,25 @@ public record ProjectAccess(Project project, UUID userId, WorkspaceRole workspac
 	 * project role decides; other members of the owning team may view. Anyone else gets an empty set: no access.
 	 */
 	public static Set<ProjectPermission> permissionsFor(WorkspaceRole workspaceRole, TeamRole teamRole,
-			ProjectRole projectRole) {
+			Set<ProjectRole> projectRoles) {
 		if (TeamAccess.permissionsFor(workspaceRole, teamRole).contains(TeamPermission.MANAGE_PROJECTS)) {
 			return ALL;
 		}
-		if (projectRole != null) {
-			return projectRole.permissions();
+		if (!projectRoles.isEmpty()) {
+			Set<ProjectPermission> union = EnumSet.noneOf(ProjectPermission.class);
+			projectRoles.forEach((role) -> union.addAll(role.permissions()));
+			return union;
 		}
 		return (teamRole != null) ? VIEW_ONLY : Set.of();
 	}
 
+	/** The role shown for the caller when they hold several. */
+	public ProjectRole projectRole() {
+		return ProjectRole.primary(projectRoles);
+	}
+
 	public Set<ProjectPermission> permissions() {
-		return permissionsFor(workspaceRole, teamRole, projectRole);
+		return permissionsFor(workspaceRole, teamRole, projectRoles);
 	}
 
 	/** @throws ApiException 403 FORBIDDEN when the caller lacks the permission */

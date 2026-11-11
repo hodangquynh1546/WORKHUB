@@ -1,15 +1,22 @@
 import { Link, NavLink, Outlet, useParams } from 'react-router'
-import type { Project } from '../../api/types'
+import type { Project, Team } from '../../api/types'
 import { useResource } from '../../api/useResource'
 import { Alert } from '../../components/Form'
 import { METHODOLOGY_LABELS, PROJECT_STATUS_LABELS } from '../roles'
 import type { ProjectContext } from './projectContext'
 import { PageSkeleton } from '../../components/Skeleton'
+import { useInvitationsLive } from '../../realtime/useInvitationsLive'
 import { useLiveReload } from '../../realtime/useLiveReload'
 
 export function ProjectLayout() {
   const { projectId } = useParams()
   const { data: project, error, reload } = useResource<Project>(`/api/projects/${projectId}`)
+  // Someone invited to the project alone has no access to its team, so the link back is only offered when it works.
+  const { data: myTeams, reload: reloadTeams } = useResource<Team[]>('/api/me/teams')
+  useInvitationsLive(() => {
+    reload()
+    reloadTeams()
+  })
   // Subscribing here (once) lets every page below hear about changes to this project.
   useLiveReload(projectId, ['project', 'members'], reload)
 
@@ -17,7 +24,7 @@ export function ProjectLayout() {
     return (
       <>
         <Alert>{error}</Alert>
-        <Link to="/workspaces">← Danh sách workspace</Link>
+        <Link to="/projects">← Danh sách dự án</Link>
       </>
     )
   }
@@ -28,9 +35,11 @@ export function ProjectLayout() {
 
   return (
     <>
-      <Link to={`/teams/${project.teamId}`} className="muted-link">
-        ← Team {project.teamName}
-      </Link>
+      {myTeams?.some((t) => t.id === project.teamId) && (
+        <Link to={`/teams/${project.teamId}`} className="muted-link">
+          ← Team {project.teamName}
+        </Link>
+      )}
       <header className="workspace-header">
         <div>
           <h1>

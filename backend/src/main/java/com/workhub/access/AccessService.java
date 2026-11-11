@@ -47,7 +47,7 @@ public class AccessService {
 	/** @throws ApiException 404 WORKSPACE_NOT_FOUND when the caller is not a member */
 	public WorkspaceAccess workspace(UUID userId, UUID workspaceId) {
 		return workspaceMembers.findByWorkspaceIdAndUserId(workspaceId, userId)
-			.map((member) -> new WorkspaceAccess(workspaceId, userId, member.getRole()))
+			.map((member) -> new WorkspaceAccess(workspaceId, userId, member.getRole(), member.isGuest()))
 			.orElseThrow(() -> ApiException.notFound("WORKSPACE_NOT_FOUND", "Workspace not found"));
 	}
 
@@ -57,8 +57,12 @@ public class AccessService {
 		Team team = teams.findById(teamId).orElseThrow(() -> notFound);
 		WorkspaceMember workspaceMember = workspaceMembers.findByWorkspaceIdAndUserId(team.getWorkspaceId(), userId)
 			.orElseThrow(() -> notFound);
-		return new TeamAccess(team, userId, workspaceMember.getRole(),
+		TeamAccess access = new TeamAccess(team, userId, workspaceMember.getRole(),
 				teamMembers.findByTeamIdAndUserId(teamId, userId).map(TeamMember::getRole).orElse(null));
+		if (access.permissions().isEmpty()) {
+			throw notFound;
+		}
+		return access;
 	}
 
 	/** @throws ApiException 404 PROJECT_NOT_FOUND when the project does not exist or the caller may not see it */
@@ -70,7 +74,8 @@ public class AccessService {
 			.orElseThrow(() -> notFound);
 		ProjectAccess access = new ProjectAccess(project, userId, workspaceMember.getRole(),
 				teamMembers.findByTeamIdAndUserId(project.getTeamId(), userId).map(TeamMember::getRole).orElse(null),
-				projectMembers.findByProjectIdAndUserId(projectId, userId).map(ProjectMember::getRole).orElse(null));
+				projectMembers.findAllByProjectIdAndUserId(projectId, userId).stream().map(ProjectMember::getRole)
+					.collect(java.util.stream.Collectors.toCollection(() -> java.util.EnumSet.noneOf(com.workhub.project.ProjectRole.class))));
 		if (access.permissions().isEmpty()) {
 			throw notFound;
 		}

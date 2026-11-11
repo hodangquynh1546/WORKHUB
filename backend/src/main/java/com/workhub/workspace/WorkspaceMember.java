@@ -32,6 +32,10 @@ public class WorkspaceMember {
 	@Column(nullable = false, length = 32)
 	private WorkspaceRole role;
 
+	/** True for people who only came in through a team or project invitation. */
+	@Column(nullable = false)
+	private boolean guest;
+
 	@CreationTimestamp
 	@Column(name = "joined_at", nullable = false, updatable = false)
 	private Instant joinedAt;
@@ -42,6 +46,21 @@ public class WorkspaceMember {
 	public WorkspaceMember(UUID workspaceId, UUID userId, WorkspaceRole role) {
 		this.workspaceId = workspaceId;
 		this.userId = userId;
+		this.role = role;
+	}
+
+	public WorkspaceMember(UUID workspaceId, UUID userId, WorkspaceRole role, boolean guest) {
+		this(workspaceId, userId, role);
+		this.guest = guest;
+	}
+
+	public boolean isGuest() {
+		return guest;
+	}
+
+	/** A workspace invitation turns a guest into a full member with the invited role. */
+	public void becomeMember(WorkspaceRole role) {
+		this.guest = false;
 		this.role = role;
 	}
 

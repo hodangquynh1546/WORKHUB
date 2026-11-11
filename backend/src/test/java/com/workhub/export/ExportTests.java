@@ -143,7 +143,7 @@ class ExportTests {
 		UUID b = issue(f, "TASK", "Carry me", 3);
 		UUID sprint = UUID.fromString(JsonPath.read(mockMvc.perform(post("/api/projects/" + f.project() + "/sprints")
 			.header("Authorization", f.owner().bearer()).contentType(MediaType.APPLICATION_JSON)
-			.content("{\"name\":\"Sprint 1\",\"startDate\":\"" + LocalDate.now() + "\",\"endDate\":\"" + LocalDate.now().plusDays(6) + "\"}"))
+			.content("{\"name\":\"Sprint 1\",\"startDate\":\"" + LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")) + "\",\"endDate\":\"" + LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(6) + "\"}"))
 			.andReturn().getResponse().getContentAsString(), "$.id"));
 		mockMvc.perform(post("/api/sprints/" + sprint + "/issues").header("Authorization", f.owner().bearer()).contentType(MediaType.APPLICATION_JSON)
 			.content("{\"issueIds\":[\"" + a + "\",\"" + b + "\"],\"includeChildren\":false}")).andExpect(status().isOk());

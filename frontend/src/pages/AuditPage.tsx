@@ -5,7 +5,7 @@ import { useResource } from '../api/useResource'
 import { Alert } from '../components/Form'
 import { ExportMenu } from '../components/ExportMenu'
 import { ListSkeleton } from '../components/Skeleton'
-import { AUDIT_FAMILIES, auditActionLabel } from './auditLabels'
+import { AUDIT_FAMILIES, auditActionLabel, auditDetail } from './auditLabels'
 import { useProject } from './project/projectContext'
 
 type Scope = { kind: 'workspace'; id: string } | { kind: 'project'; id: string } | { kind: 'mine' }
@@ -91,7 +91,7 @@ function AuditLog({ scope }: { scope: Scope }) {
                   <td>
                     <strong>{auditActionLabel(e.action)}</strong>
                     {e.outcome === 'FAILED' && <span className="badge alert-sev-critical audit-badge">Thất bại</span>}
-                    {e.detail && <p className="muted small">{e.detail}</p>}
+                    {e.detail && <p className="muted small">{auditDetail(e.detail)}</p>}
                   </td>
                   <td>{e.targetLabel ?? '—'}</td>
                 </tr>

@@ -233,7 +233,7 @@ class MeetingTests {
 	void actionItemsAreTrackedAndCanBecomeTasks() throws Exception {
 		Fixture f = fixture();
 		UUID meeting = created(create(f.dev(), f.project(), body("Retro", "SPRINT_RETROSPECTIVE", BASE, 1, null, null, List.of())));
-		LocalDate due = LocalDate.now().plusDays(10);
+		LocalDate due = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(10);
 
 		String body = actionItem(f.dev(), meeting, "Write the test plan", f.other().userId(), due).andExpect(status().isCreated())
 			.andExpect(jsonPath("$.actionItems.length()").value(1))
@@ -275,7 +275,7 @@ class MeetingTests {
 	@Test
 	void theCalendarMixesMeetingsSprintsAndDueDates() throws Exception {
 		Fixture f = fixture();
-		LocalDate today = LocalDate.now();
+		LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
 		UUID sprint = sprint(f, "Sprint 1");
 		UUID inRange = created(create(f.dev(), f.project(), body("Planning", "SPRINT_PLANNING", Instant.now().plus(1, ChronoUnit.DAYS), 1, sprint, null, List.of(f.other().userId()))));
 		created(create(f.dev(), f.project(), body("Far away", "GENERAL", Instant.now().plus(60, ChronoUnit.DAYS), 1, null, null, List.of())));
@@ -380,7 +380,7 @@ class MeetingTests {
 	}
 
 	private UUID sprint(Fixture f, String name) throws Exception {
-		LocalDate start = LocalDate.now();
+		LocalDate start = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
 		return created(mockMvc.perform(post("/api/projects/" + f.project() + "/sprints")
 			.header("Authorization", f.owner().bearer()).contentType(MediaType.APPLICATION_JSON)
 			.content("{\"name\":\"" + name + "\",\"startDate\":\"" + start + "\",\"endDate\":\"" + start.plusDays(13) + "\"}")));

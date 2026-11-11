@@ -56,7 +56,7 @@ class AuditTests {
 		Fixture f = fixture();
 		TestApi.addToProject(mockMvc, f.owner(), f.project(), f.member(), "DEVELOPER");
 		mockMvc.perform(put("/api/projects/" + f.project() + "/members/" + f.member().userId()).header("Authorization", f.owner().bearer())
-			.contentType(MediaType.APPLICATION_JSON).content("{\"role\":\"QA_ENGINEER\"}")).andExpect(status().isNoContent());
+			.contentType(MediaType.APPLICATION_JSON).content("{\"roles\":[\"QA_ENGINEER\"]}")).andExpect(status().isNoContent());
 		mockMvc.perform(put("/api/projects/" + f.project() + "/status").header("Authorization", f.owner().bearer())
 			.contentType(MediaType.APPLICATION_JSON).content("{\"status\":\"ACTIVE\"}")).andExpect(status().isOk());
 
@@ -69,7 +69,7 @@ class AuditTests {
 			.andExpect(jsonPath("$.items[0].actorId").value(f.owner().userId().toString()))
 			.andExpect(jsonPath("$.items[0].targetType").value("USER"))
 			.andExpect(jsonPath("$.items[0].targetId").value(f.member().userId().toString()))
-			.andExpect(jsonPath("$.items[0].detail").value("role=QA_ENGINEER"))
+			.andExpect(jsonPath("$.items[0].detail").value("roles=QA_ENGINEER"))
 			.andExpect(jsonPath("$.items[0].projectId").value(f.project().toString()))
 			.andExpect(jsonPath("$.items[0].outcome").value("SUCCESS"));
 		workspaceLog(f.owner(), f.workspace(), "action=project.status_change").andExpect(jsonPath("$.items[0].detail").value("status=ACTIVE"))
@@ -85,7 +85,7 @@ class AuditTests {
 			.contentType(MediaType.APPLICATION_JSON).content("{\"type\":\"TASK\",\"title\":\"Remove me\"}")));
 		UUID sprint = created(mockMvc.perform(post("/api/projects/" + f.project() + "/sprints").header("Authorization", f.owner().bearer())
 			.contentType(MediaType.APPLICATION_JSON)
-			.content("{\"name\":\"Sprint 1\",\"startDate\":\"" + LocalDate.now() + "\",\"endDate\":\"" + LocalDate.now().plusDays(6) + "\"}")));
+			.content("{\"name\":\"Sprint 1\",\"startDate\":\"" + LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")) + "\",\"endDate\":\"" + LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(6) + "\"}")));
 
 		mockMvc.perform(delete("/api/issues/" + issue).header("Authorization", f.owner().bearer())).andExpect(status().isNoContent());
 

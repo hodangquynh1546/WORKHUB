@@ -17,11 +17,18 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString('vi-VN', { hour: 
 const dayLabel = (iso: string) => new Date(iso).toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })
 
 /** Wraps `@Full Name` of mentioned people in a highlight. */
-function withMentions(body: string, people: UserRef[]): ReactNode[] {
+function withMentions(body: string, people: UserRef[], selfId?: string): ReactNode[] {
   const names = people.map((p) => p.fullName).filter(Boolean).sort((a, b) => b.length - a.length)
   if (names.length === 0) return [body]
   const pattern = new RegExp(`(@(?:${names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}))`, 'gi')
-  return body.split(pattern).map((part, i) => (i % 2 === 1 ? <mark key={i} className="mention">{part}</mark> : part))
+  const selfName = people.find((p) => p.id === selfId)?.fullName.toLowerCase()
+  return body.split(pattern).map((part, i) =>
+    i % 2 === 1 ? (
+      <mark key={i} className={part.slice(1).toLowerCase() === selfName ? 'mention mention-self' : 'mention'}>{part}</mark>
+    ) : (
+      part
+    ),
+  )
 }
 
 export function MessagePane({ conversation, online, onBack, onChanged }: { conversation: ConversationSummary; online: boolean | null; onBack: () => void; onChanged: () => void }) {
@@ -237,19 +244,43 @@ export function MessagePane({ conversation, online, onBack, onChanged }: { conve
 function Message({ message: m, compact, selfId, people, byId, onReply, act, seenBy, direct }: { message: ChatMessage; compact: boolean; selfId?: string; people: UserRef[]; byId: Map<string, UserRef>; onReply: () => void; act: (action: () => Promise<unknown>) => Promise<void>; seenBy: UserRef[]; direct: boolean }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
+  // On touch screens the actions open with a long press (on desktop they show on hover).
+  const [pressed, setPressed] = useState(false)
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const startPress = () => {
+    clearTimeout(pressTimer.current)
+    pressTimer.current = setTimeout(() => setPressed(true), 450)
+  }
+  const cancelPress = () => clearTimeout(pressTimer.current)
+  const toolbar = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!pressed) return
+    const close = (event: Event) => {
+      if (!toolbar.current?.contains(event.target as Node)) setPressed(false)
+    }
+    document.addEventListener('touchstart', close)
+    return () => document.removeEventListener('touchstart', close)
+  }, [pressed])
   const own = m.sender?.id === selfId
-  const mentioned = selfId ? m.mentions.includes(selfId) : false
   const mentionedPeople = m.mentions.map((id) => byId.get(id)).filter((p): p is UserRef => !!p)
 
   const react = (emoji: string) => act(() => api(`/api/chat/messages/${m.id}/reactions`, { method: 'POST', body: { emoji } }))
 
   return (
-    <article className={`msg ${compact ? 'compact' : ''} ${mentioned ? 'msg-mentioned' : ''}`}>
-      {compact ? <span className="msg-gutter muted small">{time(m.createdAt)}</span> : <Avatar name={m.sender?.fullName ?? '?'} url={m.sender?.avatarUrl} />}
+    <article className={`msg ${compact ? 'compact' : ''} ${own ? 'own' : ''} ${pressed ? 'actions-open' : ''}`}
+      onTouchStart={startPress}
+      onTouchEnd={cancelPress}
+      onTouchMove={cancelPress}
+      onTouchCancel={cancelPress}
+      onContextMenu={(e) => {
+        if (window.matchMedia('(hover: none)').matches) e.preventDefault()
+      }}
+    >
+      {compact ? <span className="msg-gutter muted small">{time(m.createdAt)}</span> : own ? null : <Avatar name={m.sender?.fullName ?? '?'} url={m.sender?.avatarUrl} />}
       <div className="msg-body">
         {!compact && (
           <div className="msg-meta">
-            <strong>{m.sender?.fullName ?? 'Người dùng đã rời'}</strong>
+            {!own && <strong>{m.sender?.fullName ?? 'Người dùng đã rời'}</strong>}
             <span className="muted small">{time(m.createdAt)}</span>
             {m.editedAt && !m.deleted && <span className="muted small">(đã sửa)</span>}
           </div>
@@ -283,7 +314,7 @@ function Message({ message: m, compact, selfId, people, byId, onReply, act, seen
         ) : (
           <>
             {!(m.attachments.length > 0 && m.body === (m.attachments.length === 1 ? `📎 ${m.attachments[0].fileName}` : `📎 ${m.attachments.length} tệp`)) && (
-              <p className="prewrap msg-text">{withMentions(m.body ?? '', mentionedPeople.length ? mentionedPeople : people)}</p>
+              <p className="prewrap msg-text">{withMentions(m.body ?? '', mentionedPeople.length ? mentionedPeople : people, selfId)}</p>
             )}
             {m.attachments.map((file) => (
               <MessageAttachment key={file.id} file={file} />
@@ -318,7 +349,7 @@ function Message({ message: m, compact, selfId, people, byId, onReply, act, seen
         )}
       </div>
       {!m.deleted && !editing && (
-        <div className="msg-actions" role="toolbar" aria-label="Thao tác tin nhắn">
+        <div ref={toolbar} className="msg-actions" role="toolbar" aria-label="Thao tác tin nhắn" onClick={() => setPressed(false)}>
           {EMOJIS.map((emoji) => (
             <button key={emoji} type="button" className="msg-act" onClick={() => react(emoji)} aria-label={`Thả ${emoji}`}>
               {emoji}

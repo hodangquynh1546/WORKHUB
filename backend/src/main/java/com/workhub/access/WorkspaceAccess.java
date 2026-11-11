@@ -6,8 +6,13 @@ import java.util.UUID;
 import com.workhub.common.ApiException;
 import com.workhub.workspace.WorkspaceRole;
 
-/** The caller's standing in a workspace they are a member of. */
-public record WorkspaceAccess(UUID workspaceId, UUID userId, WorkspaceRole role) {
+/** The caller's standing in a workspace they are a member of; a guest only came in through a team or project. */
+public record WorkspaceAccess(UUID workspaceId, UUID userId, WorkspaceRole role, boolean guest) {
+
+	public WorkspaceAccess(UUID workspaceId, UUID userId, WorkspaceRole role) {
+		this(workspaceId, userId, role, false);
+	}
+
 
 	public Set<WorkspacePermission> permissions() {
 		return role.permissions();

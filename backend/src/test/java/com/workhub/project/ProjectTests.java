@@ -195,34 +195,92 @@ class ProjectTests {
 	}
 
 	@Test
-	void productOwnerAndScrumMasterAreHeldByOneMemberEach() throws Exception {
+	void projectManagerAndScrumMasterAreHeldByOneMemberEachAndMoveWhenGivenToSomeoneElse() throws Exception {
 		Fixture f = fixture();
 		UUID project = TestApi.createProject(mockMvc, f.owner(), f.team(), TestApi.uniqueKey());
-		Session po = member(f, project, "PRODUCT_OWNER");
+		Session sm = member(f, project, "SCRUM_MASTER");
 		Session other = TestApi.joinWorkspace(mockMvc, f.owner(), f.workspace(), "MEMBER");
+		Session third = TestApi.joinWorkspace(mockMvc, f.owner(), f.workspace(), "MEMBER");
 
-		addMember(f.owner(), project, other.userId(), "PRODUCT_OWNER").andExpect(status().isConflict())
-			.andExpect(jsonPath("$.code").value("ROLE_TAKEN"));
 		addMember(f.owner(), project, other.userId(), "DEVELOPER").andExpect(status().isNoContent());
-		changeRole(f.owner(), project, other, "PRODUCT_OWNER").andExpect(status().isConflict());
-		changeRole(f.owner(), project, po, "SCRUM_MASTER").andExpect(status().isNoContent());
-		changeRole(f.owner(), project, other, "PRODUCT_OWNER").andExpect(status().isNoContent());
 		addMember(f.owner(), project, other.userId(), "DEVELOPER").andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ALREADY_MEMBER"));
+		// Product owners are not limited to one.
+		addMember(f.owner(), project, third.userId(), "PRODUCT_OWNER").andExpect(status().isNoContent());
+		changeRole(f.owner(), project, other, "PRODUCT_OWNER").andExpect(status().isNoContent());
+
+		// Giving the Scrum Master role to someone else takes it from the holder, who becomes a developer.
+		changeRole(f.owner(), project, other, "SCRUM_MASTER", "PRODUCT_OWNER").andExpect(status().isNoContent());
+		mockMvc.perform(get("/api/projects/" + project + "/members").header("Authorization", f.owner().bearer()))
+			.andExpect(jsonPath("$[?(@.userId == '" + other.userId() + "')].roles[?(@ == 'SCRUM_MASTER')]").isNotEmpty())
+			.andExpect(jsonPath("$[?(@.userId == '" + sm.userId() + "')].roles[?(@ == 'DEVELOPER')]").isNotEmpty());
 	}
 
 	@Test
-	void aProjectKeepsAtLeastOneProjectManager() throws Exception {
+	void aMemberCanHoldSeveralRolesAndTheirPermissionsAdd() throws Exception {
 		Fixture f = fixture();
 		UUID project = TestApi.createProject(mockMvc, f.owner(), f.team(), TestApi.uniqueKey());
-		Session second = member(f, project, "PROJECT_MANAGER");
+		Session dev = member(f, project, "STAKEHOLDER");
+		mockMvc.perform(get("/api/projects/" + project).header("Authorization", dev.bearer()))
+			.andExpect(jsonPath("$.permissions[?(@ == 'EDIT_ISSUES')]").isEmpty());
 
-		// The owner created the project, so they are the first manager.
-		changeRole(second, project, f.owner(), "DEVELOPER").andExpect(status().isNoContent());
+		changeRole(f.owner(), project, dev, "STAKEHOLDER", "DEVELOPER", "PRODUCT_OWNER").andExpect(status().isNoContent());
+		mockMvc.perform(get("/api/projects/" + project).header("Authorization", dev.bearer()))
+			.andExpect(jsonPath("$.myRoles.length()").value(3))
+			.andExpect(jsonPath("$.myRole").value("PRODUCT_OWNER"))
+			.andExpect(jsonPath("$.permissions[?(@ == 'EDIT_ISSUES')]").isNotEmpty())
+			.andExpect(jsonPath("$.permissions[?(@ == 'MANAGE_BACKLOG')]").isNotEmpty());
+		mockMvc.perform(get("/api/projects/" + project + "/members").header("Authorization", f.owner().bearer()))
+			.andExpect(jsonPath("$.length()").value(2));
+
+		changeRole(f.owner(), project, dev, "STAKEHOLDER").andExpect(status().isNoContent());
+		mockMvc.perform(get("/api/projects/" + project).header("Authorization", dev.bearer()))
+			.andExpect(jsonPath("$.myRoles.length()").value(1))
+			.andExpect(jsonPath("$.permissions[?(@ == 'EDIT_ISSUES')]").isEmpty());
+		changeRole(f.owner(), project, dev).andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void theProjectManagerRoleMustBeHandedOverNotDropped() throws Exception {
+		Fixture f = fixture();
+		UUID project = TestApi.createProject(mockMvc, f.owner(), f.team(), TestApi.uniqueKey());
+		Session second = member(f, project, "PROJECT_MANAGER"); // takes the role over from the creator
+
 		remove(second, project, second).andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("LAST_PROJECT_MANAGER"));
 		changeRole(f.owner(), project, second, "DEVELOPER").andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("LAST_PROJECT_MANAGER"));
+		changeRole(f.owner(), project, f.owner(), "PROJECT_MANAGER").andExpect(status().isNoContent());
+		mockMvc.perform(get("/api/projects/" + project + "/members").header("Authorization", f.owner().bearer()))
+			.andExpect(jsonPath("$[?(@.userId == '" + second.userId() + "')].roles[?(@ == 'DEVELOPER')]").isNotEmpty());
+	}
+
+	@Test
+	void aProjectPictureIsUploadedServedPubliclyAndRemoved() throws Exception {
+		Fixture f = fixture();
+		UUID project = TestApi.createProject(mockMvc, f.owner(), f.team(), TestApi.uniqueKey());
+		Session dev = member(f, project, "DEVELOPER");
+		byte[] png = { (byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0 };
+		var file = new org.springframework.mock.web.MockMultipartFile("file", "logo.png", "image/png", png);
+
+		mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart(org.springframework.http.HttpMethod.PUT, "/api/projects/" + project + "/avatar")
+			.file(file).header("Authorization", dev.bearer())).andExpect(status().isForbidden());
+		String url = com.jayway.jsonpath.JsonPath.read(mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart(org.springframework.http.HttpMethod.PUT, "/api/projects/" + project + "/avatar")
+			.file(file).header("Authorization", f.owner().bearer())).andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString(), "$.avatarUrl");
+		org.assertj.core.api.Assertions.assertThat(url).startsWith("/api/public/projects/" + project + "/avatar?v=");
+		mockMvc.perform(get("/api/public/projects/" + project + "/avatar")).andExpect(status().isOk())
+			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().contentType("image/png"));
+
+		// Saving the details does not touch the picture; a fake image is refused.
+		update(f.owner(), project).andExpect(status().isOk()).andExpect(jsonPath("$.avatarUrl").value(url));
+		mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart(org.springframework.http.HttpMethod.PUT, "/api/projects/" + project + "/avatar")
+			.file(new org.springframework.mock.web.MockMultipartFile("file", "x.png", "image/png", "<script>".getBytes()))
+			.header("Authorization", f.owner().bearer())).andExpect(status().isBadRequest());
+
+		mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/projects/" + project + "/avatar")
+			.header("Authorization", f.owner().bearer())).andExpect(status().isOk()).andExpect(jsonPath("$.avatarUrl").doesNotExist());
+		mockMvc.perform(get("/api/public/projects/" + project + "/avatar")).andExpect(status().isNotFound());
 	}
 
 	@Test
@@ -286,7 +344,8 @@ class ProjectTests {
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("{\"key\":\"" + TestApi.uniqueKey() + "\",\"name\":\"Two POs\",\"methodology\":\"SCRUM\","
 					+ "\"members\":[{\"userId\":\"" + f.member().userId() + "\",\"role\":\"PRODUCT_OWNER\"},"
-					+ "{\"userId\":\"" + other.userId() + "\",\"role\":\"PRODUCT_OWNER\"}]}"))
+					+ "{\"userId\":\"" + other.userId() + "\",\"role\":\"SCRUM_MASTER\"},"
+					+ "{\"userId\":\"" + f.member().userId() + "\",\"role\":\"SCRUM_MASTER\"}]}"))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ROLE_TAKEN"));
 	}
@@ -330,11 +389,12 @@ class ProjectTests {
 			.content(json("userId", userId.toString(), "role", role)));
 	}
 
-	private ResultActions changeRole(Session caller, UUID project, Session target, String role) throws Exception {
+	private ResultActions changeRole(Session caller, UUID project, Session target, String... roles) throws Exception {
+		String list = java.util.Arrays.stream(roles).map((r) -> "\"" + r + "\"").collect(java.util.stream.Collectors.joining(","));
 		return mockMvc.perform(put("/api/projects/" + project + "/members/" + target.userId())
 			.header("Authorization", caller.bearer())
 			.contentType(MediaType.APPLICATION_JSON)
-			.content(json("role", role)));
+			.content("{\"roles\":[" + list + "]}"));
 	}
 
 	private ResultActions remove(Session caller, UUID project, Session target) throws Exception {

@@ -1,6 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { Navigate } from 'react-router'
 import { api } from '../../api/client'
+import { resizeToSquare } from '../../api/resizeImage'
+import { Avatar } from '../../components/Avatar'
 import { errorMessage } from '../../api/errors'
 import type { Methodology, Project, ProjectStatus, WorkflowEntry } from '../../api/types'
 import { useWorkflow } from '../../api/useWorkflow'
@@ -27,11 +29,67 @@ export function SettingsPage() {
   )
 }
 
+/** Chooses a picture from the computer; it is cropped to a small square and saved at once. */
+function ProjectPicture() {
+  const { project, reload } = useProject()
+  const input = useRef<HTMLInputElement>(null)
+  const [message, setMessage] = useState<Message>(null)
+  const [busy, setBusy] = useState(false)
+  const archived = project.status === 'ARCHIVED'
+
+  async function run(action: () => Promise<unknown>, done: string) {
+    setBusy(true)
+    setMessage(null)
+    try {
+      await action()
+      reload()
+      setMessage({ ok: true, text: done })
+    } catch (err) {
+      setMessage({ ok: false, text: errorMessage(err) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function choose(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setMessage({ ok: false, text: 'Hãy chọn một tệp ảnh.' })
+      return
+    }
+    await run(async () => {
+      const form = new FormData()
+      form.append('file', await resizeToSquare(file), 'project.jpg')
+      await api<Project>(`/api/projects/${project.id}/avatar`, { method: 'PUT', body: form })
+    }, 'Đã cập nhật ảnh dự án.')
+  }
+
+  return (
+    <div className="stack">
+      <span className="muted small">Ảnh đại diện</span>
+      <div className="account-identity">
+        <button type="button" className="avatar-edit" aria-label="Chọn ảnh dự án từ máy" disabled={busy || archived} onClick={() => input.current?.click()}>
+          <Avatar name={project.name} url={project.avatarUrl} size="lg" />
+          <span className="avatar-edit-hint">Đổi ảnh</span>
+        </button>
+        {project.avatarUrl && (
+          <button type="button" className="button-secondary button-small" disabled={busy || archived} onClick={() => run(() => api<Project>(`/api/projects/${project.id}/avatar`, { method: 'DELETE' }), 'Đã xóa ảnh dự án.')}>
+            Xóa ảnh
+          </button>
+        )}
+        <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={choose} />
+      </div>
+      {message && <Alert kind={message.ok ? 'success' : 'error'}>{message.text}</Alert>}
+    </div>
+  )
+}
+
 function DetailsForm() {
   const { project, reload } = useProject()
   const [name, setName] = useState(project.name)
   const [description, setDescription] = useState(project.description ?? '')
-  const [avatarUrl, setAvatarUrl] = useState(project.avatarUrl ?? '')
   const [startDate, setStartDate] = useState(project.startDate ?? '')
   const [endDate, setEndDate] = useState(project.endDate ?? '')
   const [methodology, setMethodology] = useState<Methodology>(project.methodology)
@@ -44,7 +102,7 @@ function DetailsForm() {
     try {
       await api<Project>(`/api/projects/${project.id}`, {
         method: 'PUT',
-        body: { name, description, avatarUrl: avatarUrl.trim() || null, startDate: startDate || null, endDate: endDate || null, methodology },
+        body: { name, description, startDate: startDate || null, endDate: endDate || null, methodology },
       })
       reload()
       setMessage({ ok: true, text: 'Đã lưu thay đổi.' })
@@ -60,7 +118,7 @@ function DetailsForm() {
         <Field label="Mã dự án (không đổi được)" value={project.key} disabled />
         <Field label="Tên dự án" required maxLength={100} disabled={archived} value={name} onChange={(e) => setName(e.target.value)} />
         <Field label="Mô tả" maxLength={2000} disabled={archived} value={description} onChange={(e) => setDescription(e.target.value)} />
-        <Field label="Ảnh đại diện URL (http/https)" type="url" maxLength={1024} placeholder="https://…" disabled={archived} value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} />
+        <ProjectPicture />
         <div className="inline-form">
           <Field label="Bắt đầu" type="date" disabled={archived} value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           <Field label="Kết thúc dự kiến" type="date" min={startDate || undefined} disabled={archived} value={endDate} onChange={(e) => setEndDate(e.target.value)} />

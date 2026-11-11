@@ -7,6 +7,7 @@ import { useResource } from '../api/useResource'
 import { useAuth } from '../auth/AuthContext'
 import { Alert, Field } from '../components/Form'
 import { DeleteZone } from '../components/DeleteZone'
+import { useInvitationsLive } from '../realtime/useInvitationsLive'
 import { InviteForm, PendingInvitations } from '../components/Invitations'
 import { ProjectList } from '../components/ProjectList'
 import { ROLE_LABELS } from './roles'
@@ -18,6 +19,7 @@ export function WorkspacePage() {
   const { workspaceId } = useParams()
   const navigate = useNavigate()
   const { data: workspace, error, reload } = useResource<Workspace>(`/api/workspaces/${workspaceId}`)
+  useInvitationsLive(reload)
 
   if (error) {
     return (
@@ -81,7 +83,8 @@ export function WorkspacePage() {
 function TeamsSection({ workspace }: { workspace: Workspace }) {
   const navigate = useNavigate()
   const [showArchived, setShowArchived] = useState(false)
-  const { data: teams, error } = useResource<Team[]>(`/api/workspaces/${workspace.id}/teams?archived=${showArchived}`)
+  const { data: teams, error, reload: reloadTeams } = useResource<Team[]>(`/api/workspaces/${workspace.id}/teams?archived=${showArchived}`)
+  useInvitationsLive(reloadTeams)
   const [name, setName] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
 
@@ -134,7 +137,8 @@ function TeamsSection({ workspace }: { workspace: Workspace }) {
 }
 
 function ProjectsSection({ workspace }: { workspace: Workspace }) {
-  const { data: projects, error } = useResource<Project[]>(`/api/workspaces/${workspace.id}/projects`)
+  const { data: projects, error, reload: reloadProjects } = useResource<Project[]>(`/api/workspaces/${workspace.id}/projects`)
+  useInvitationsLive(reloadProjects)
   return (
     <section className="card">
       <h2>Dự án</h2>
@@ -150,6 +154,7 @@ function ProjectsSection({ workspace }: { workspace: Workspace }) {
 function MembersSection({ workspace }: { workspace: Workspace }) {
   const { user } = useAuth()
   const { data: members, error, reload } = useResource<WorkspaceMember[]>(`/api/workspaces/${workspace.id}/members`)
+  useInvitationsLive(reload)
   const [actionError, setActionError] = useState<string | null>(null)
   const can = (p: Workspace['permissions'][number]) => workspace.permissions.includes(p)
 
@@ -218,6 +223,7 @@ function MembersSection({ workspace }: { workspace: Workspace }) {
 
 function InvitationsSection({ workspace }: { workspace: Workspace }) {
   const { data, reload } = useResource<Invitation[]>(`/api/workspaces/${workspace.id}/invitations`)
+  useInvitationsLive(reload)
   const roles = [
     ...(workspace.permissions.includes('MANAGE_ADMINS') ? [{ value: 'ADMIN', label: ROLE_LABELS.ADMIN }] : []),
     { value: 'MEMBER', label: ROLE_LABELS.MEMBER },

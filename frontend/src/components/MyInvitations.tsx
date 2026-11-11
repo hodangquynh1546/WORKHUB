@@ -5,12 +5,14 @@ import { errorMessage } from '../api/errors'
 import type { Invitation, InvitationAccepted } from '../api/types'
 import { useResource } from '../api/useResource'
 import { invitationRoleLabel } from '../pages/roles'
+import { useInvitationsLive } from '../realtime/useInvitationsLive'
 import { Alert } from './Form'
 
 /** Email invitations addressed to the signed-in user. Renders nothing when there are none. */
 export function MyInvitations() {
   const navigate = useNavigate()
   const { data, reload } = useResource<Invitation[]>('/api/me/invitations')
+  useInvitationsLive(reload)
   const [error, setError] = useState<string | null>(null)
 
   async function respond(invitation: Invitation, accept: boolean) {

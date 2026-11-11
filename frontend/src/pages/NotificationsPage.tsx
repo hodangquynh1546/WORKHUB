@@ -114,6 +114,7 @@ function Preferences() {
       <h2>Cách nhận thông báo</h2>
       <p className="muted small">Chọn từng loại có hiện trong ứng dụng, gửi email, cả hai hoặc không nhận.</p>
       <Alert>{error ?? message}</Alert>
+      <div className="prefs-scroll stack">
       {[false, true].map((alert) => (
         <div key={String(alert)}>
           <h3>{alert ? 'Cảnh báo tiến độ' : 'Hoạt động'}</h3>
@@ -144,6 +145,7 @@ function Preferences() {
           </table>
         </div>
       ))}
+      </div>
     </section>
   )
 }

@@ -7,10 +7,34 @@ import { useResource } from '../../api/useResource'
 import { useAuth } from '../../auth/AuthContext'
 import { Alert } from '../../components/Form'
 import type { Invitation } from '../../api/types'
+import { useInvitationsLive } from '../../realtime/useInvitationsLive'
 import { InviteForm, PendingInvitations } from '../../components/Invitations'
 import { PROJECT_ROLE_LABELS, PROJECT_ROLES } from '../roles'
 import { useProject } from './projectContext'
 import { useLiveReload } from '../../realtime/useLiveReload'
+
+/** Checkboxes for the member's roles; every change is saved at once, and one role must always stay ticked. */
+function RolePicker({ member, holders, onChange }: { member: ProjectMember; holders: ProjectMember[]; onChange: (roles: ProjectRole[]) => void }) {
+  function toggle(role: ProjectRole, on: boolean) {
+    const next = on ? [...member.roles, role] : member.roles.filter((r) => r !== role)
+    if (next.length === 0) return
+    const holder = on ? holders.find((h) => h.userId !== member.userId && h.roles.includes(role)) : undefined
+    if (holder && !window.confirm(`${PROJECT_ROLE_LABELS[role]} hiện là ${holder.fullName}. Chuyển vai trò này sang ${member.fullName}?`)) return
+    onChange(next)
+  }
+  return (
+    <details className="role-picker">
+      <summary>{member.roles.map((r) => PROJECT_ROLE_LABELS[r]).join(', ')}</summary>
+      <div className="role-picker-list">
+        {PROJECT_ROLES.map((role) => (
+          <label key={role} className="inline-check">
+            <input type="checkbox" checked={member.roles.includes(role)} onChange={(e) => toggle(role, e.target.checked)} /> {PROJECT_ROLE_LABELS[role]}
+          </label>
+        ))}
+      </div>
+    </details>
+  )
+}
 
 function RoleOptions() {
   return PROJECT_ROLES.map((role) => (
@@ -26,6 +50,7 @@ export function MembersPage() {
   const navigate = useNavigate()
   const { data: members, error, reload } = useResource<ProjectMember[]>(`/api/projects/${project.id}/members`)
   useLiveReload(project.id, ['members'], reload)
+  useInvitationsLive(reload)
   const [actionError, setActionError] = useState<string | null>(null)
   const canManage = project.permissions.includes('MANAGE_MEMBERS') && project.status !== 'ARCHIVED'
   const memberPath = (userId: string) => `/api/projects/${project.id}/members/${userId}`
@@ -55,7 +80,7 @@ export function MembersPage() {
   return (
     <section className="card">
       <h2>Thành viên dự án ({members?.length ?? '…'})</h2>
-      <p className="muted small">Product Owner và Scrum Master chỉ có một người; dự án luôn cần ít nhất một Project Manager.</p>
+      <p className="muted small">Một thành viên có thể giữ nhiều vai trò (quyền cộng dồn). Project Manager và Scrum Master chỉ có một người: gán cho người khác thì người đang giữ được chuyển sang vai trò còn lại (hoặc Developer).</p>
       <Alert>{error ?? actionError}</Alert>
       <table className="table">
         <thead>
@@ -73,15 +98,13 @@ export function MembersPage() {
               <td>{m.email}</td>
               <td>
                 {canManage ? (
-                  <select
-                    value={m.role}
-                    aria-label="Vai trò"
-                    onChange={(e) => run(() => api(memberPath(m.userId), { method: 'PUT', body: { role: e.target.value } }))}
-                  >
-                    <RoleOptions />
-                  </select>
+                  <RolePicker
+                    member={m}
+                    holders={members}
+                    onChange={(roles) => run(() => api(memberPath(m.userId), { method: 'PUT', body: { roles } }))}
+                  />
                 ) : (
-                  PROJECT_ROLE_LABELS[m.role]
+                  m.roles.map((r) => PROJECT_ROLE_LABELS[r]).join(', ')
                 )}
               </td>
               <td className="cell-actions">
@@ -157,6 +180,7 @@ function AddMember({ projectId, workspaceId, existing, onAdded }: { projectId: s
 
 function ProjectInvitations({ projectId }: { projectId: string }) {
   const { data, reload } = useResource<Invitation[]>(`/api/projects/${projectId}/invitations`)
+  useInvitationsLive(reload)
   const roles = PROJECT_ROLES.map((value) => ({ value, label: PROJECT_ROLE_LABELS[value] }))
   return (
     <section className="card stack">

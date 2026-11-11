@@ -99,7 +99,7 @@ public class ExportService {
 	public ResponseEntity<byte[]> members(UUID userId, UUID projectId, ExportFormat format) {
 		List<ProjectMemberResponse> members = projects.listMembers(userId, projectId);
 		List<List<Object>> rows = members.stream()
-			.map((m) -> List.<Object>of(m.fullName(), m.email(), m.role().name(), m.joinedAt().toString()))
+			.map((m) -> List.<Object>of(m.fullName(), m.email(), m.roles().stream().map(Enum::name).collect(java.util.stream.Collectors.joining(", ")), m.joinedAt().toString()))
 			.toList();
 		return download(Table.of("Thành viên", List.of("Họ tên", "Email", "Vai trò", "Tham gia lúc"), rows), format, "members");
 	}

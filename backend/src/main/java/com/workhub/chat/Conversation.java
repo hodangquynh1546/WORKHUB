@@ -26,7 +26,8 @@ public class Conversation {
 	@Column(nullable = false, updatable = false, length = 16)
 	private ConversationKind kind;
 
-	@Column(name = "workspace_id", nullable = false, updatable = false)
+	/** Null for direct conversations, which belong to the two people rather than to a workspace. */
+	@Column(name = "workspace_id", updatable = false)
 	private UUID workspaceId;
 
 	@Column(name = "project_id", updatable = false)
@@ -72,8 +73,8 @@ public class Conversation {
 		return c;
 	}
 
-	static Conversation direct(UUID workspaceId, String key, UUID createdBy) {
-		Conversation c = new Conversation(ConversationKind.DIRECT, workspaceId, createdBy);
+	static Conversation direct(String key, UUID createdBy) {
+		Conversation c = new Conversation(ConversationKind.DIRECT, null, createdBy);
 		c.directKey = key;
 		return c;
 	}

@@ -16,7 +16,7 @@ export function ProjectList({ projects, showTeam = false }: { projects: Project[
               <p className="muted small">
                 {METHODOLOGY_LABELS[p.methodology]} · {p.memberCount} thành viên
                 {showTeam && ` · team ${p.teamName}`}
-                {p.myRole && ` · bạn là ${PROJECT_ROLE_LABELS[p.myRole]}`}
+                {p.myRole && ` · bạn là ${p.myRoles.map((r) => PROJECT_ROLE_LABELS[r]).join(', ')}`}
               </p>
             </div>
             <span className={`badge status-${p.status.toLowerCase()}`}>{PROJECT_STATUS_LABELS[p.status]}</span>

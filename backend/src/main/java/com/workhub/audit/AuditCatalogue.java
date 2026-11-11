@@ -59,7 +59,7 @@ final class AuditCatalogue {
 			of("PUT", "/api/projects/{project}", "project.update").target("PROJECT", "project").scope("projects", "project").detail("methodology"),
 			of("PUT", "/api/projects/{project}/status", "project.status_change").target("PROJECT", "project").scope("projects", "project").detail("status"),
 			of("POST", "/api/projects/{project}/members", "project.member_add").target("PROJECT", "project").scope("projects", "project").detail("userId", "role"),
-			of("PUT", "/api/projects/{project}/members/{user}", "project.member_role_change").target("USER", "user").scope("projects", "project").detail("role"),
+			of("PUT", "/api/projects/{project}/members/{user}", "project.member_role_change").target("USER", "user").scope("projects", "project").detail("roles"),
 			of("DELETE", "/api/projects/{project}/members/{user}", "project.member_remove").target("USER", "user").scope("projects", "project"),
 			of("PUT", "/api/projects/{project}/alert-settings", "project.alert_settings").target("PROJECT", "project").scope("projects", "project"),
 			of("PUT", "/api/projects/{project}/workflow", "project.workflow_change").target("PROJECT", "project").scope("projects", "project"),

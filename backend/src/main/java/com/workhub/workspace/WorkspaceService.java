@@ -39,9 +39,11 @@ public class WorkspaceService {
 
 	private final PasswordEncoder passwordEncoder;
 
+	private final com.workhub.common.CascadeCleaner cascadeCleaner;
+
 	public WorkspaceService(AccessService access, WorkspaceRepository workspaces, WorkspaceMemberRepository members,
 			TeamMemberRepository teamMembers, ProjectMemberRepository projectMembers, IssueRepository issues,
-			UserRepository users, PasswordEncoder passwordEncoder) {
+			UserRepository users, PasswordEncoder passwordEncoder, com.workhub.common.CascadeCleaner cascadeCleaner) {
 		this.access = access;
 		this.workspaces = workspaces;
 		this.members = members;
@@ -50,6 +52,7 @@ public class WorkspaceService {
 		this.issues = issues;
 		this.users = users;
 		this.passwordEncoder = passwordEncoder;
+		this.cascadeCleaner = cascadeCleaner;
 	}
 
 	/** The creator becomes the workspace owner. */
@@ -67,7 +70,7 @@ public class WorkspaceService {
 
 	@Transactional(readOnly = true)
 	public WorkspaceResponse get(UUID userId, UUID workspaceId) {
-		WorkspaceAccess caller = access.workspace(userId, workspaceId);
+		WorkspaceAccess caller = notGuest(access.workspace(userId, workspaceId));
 		return WorkspaceResponse.of(load(workspaceId), caller.role());
 	}
 
@@ -87,6 +90,7 @@ public class WorkspaceService {
 		access.workspace(userId, workspaceId).require(WorkspacePermission.DELETE_WORKSPACE);
 		Workspace workspace = load(workspaceId);
 		confirmation.require(workspace.getName());
+		cascadeCleaner.beforeDeletingWorkspace(workspaceId);
 		workspaces.delete(workspace);
 	}
 
@@ -107,7 +111,7 @@ public class WorkspaceService {
 
 	@Transactional(readOnly = true)
 	public List<WorkspaceMemberResponse> listMembers(UUID userId, UUID workspaceId) {
-		access.workspace(userId, workspaceId);
+		notGuest(access.workspace(userId, workspaceId));
 		return members.findMembers(workspaceId);
 	}
 
@@ -155,6 +159,14 @@ public class WorkspaceService {
 	private Workspace load(UUID workspaceId) {
 		return workspaces.findById(workspaceId)
 			.orElseThrow(() -> ApiException.notFound("WORKSPACE_NOT_FOUND", "Workspace not found"));
+	}
+
+	/** Guests (invited to a team or project only) do not see the workspace itself or who else is in it. */
+	private static WorkspaceAccess notGuest(WorkspaceAccess access) {
+		if (access.guest()) {
+			throw ApiException.notFound("WORKSPACE_NOT_FOUND", "Workspace not found");
+		}
+		return access;
 	}
 
 }

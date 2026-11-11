@@ -86,6 +86,8 @@ const MESSAGES: Record<string, string> = {
   TEAM_ARCHIVED: 'Team đã được lưu trữ nên không thể thay đổi.',
   MEMBER_NOT_FOUND: 'Người này không còn là thành viên.',
   NOT_WORKSPACE_MEMBER: 'Người này chưa thuộc workspace. Hãy gửi lời mời.',
+  USER_NOT_FOUND: 'Không tìm thấy tài khoản nào với email này.',
+  CANNOT_CHAT_WITH_SELF: 'Bạn không thể nhắn tin cho chính mình.',
   ALREADY_MEMBER: 'Người này đã là thành viên.',
   OWNER_PROTECTED: 'Không thể thay đổi hoặc xóa chủ sở hữu workspace.',
   OWNER_CANNOT_LEAVE: 'Chủ sở hữu không thể rời workspace.',

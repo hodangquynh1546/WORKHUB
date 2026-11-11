@@ -2290,7 +2290,7 @@ a.meeting-card:hover {
   z-index: 20;
   width: min(420px, calc(100vw - 2 * var(--gutter)));
   max-height: calc(100vh - 100px);
-  overflow-y: auto;
+  overflow: hidden; /* the panel stays put: only the list scrolls, the header and footer link stay in view */
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
@@ -2310,6 +2310,15 @@ a.meeting-card:hover {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.bell-panel > .section-header,
+.bell-all {
+  flex: none;
 }
 
 .notif-item {
@@ -2676,8 +2685,26 @@ a.meeting-card:hover {
   padding-bottom: 0.05rem;
 }
 
-.msg-mentioned {
-  background: var(--warning-soft);
+.msg.own {
+  flex-direction: row-reverse;
+}
+
+.msg.own .msg-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.msg.own .msg-reply {
+  border-left: 0;
+  border-right: 3px solid var(--border-strong);
+}
+
+.mention.mention-self {
+  background: none;
+  color: var(--danger);
+  font-weight: 700;
 }
 
 .msg-gutter {
@@ -2864,7 +2891,12 @@ a.meeting-card:hover {
     display: inline-flex;
   }
 
-  .msg-actions {
+  .msg:hover .msg-actions,
+  .msg:focus-within .msg-actions {
+    display: none;
+  }
+
+  .msg.actions-open .msg-actions {
     display: flex;
     position: static;
     margin-top: 0.3rem;
@@ -3056,6 +3088,7 @@ a.meeting-card:hover {
 .subtask-wrap { list-style: none; padding: 0 0 8px 40px; }
 .subtask-list { border-left: 2px solid var(--border, currentColor); margin-left: 12px; padding-left: 12px; display: grid; gap: 6px; }
 .subtask-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.9rem; }
+.subtask-row-wrap { list-style: none; }
 .subtask-row > :nth-last-child(2) { margin-left: auto; }
 
 /* Password field with show/hide toggle */
@@ -3085,3 +3118,35 @@ a.meeting-card:hover {
 .composer-files { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 
 .typing-inline { display: inline-flex; align-items: center; gap: 6px; }
+
+.role-picker summary { cursor: pointer; list-style: none; }
+.role-picker summary::after { content: ' ▾'; color: var(--muted); }
+.role-picker[open] summary::after { content: ' ▴'; }
+.role-picker-list { display: grid; gap: 6px; padding: 8px 0 4px; }
+
+.workspace-item { position: relative; display: flex; align-items: stretch; gap: 8px; }
+.workspace-item > a.workspace-card { flex: 1; min-width: 0; }
+.ws-menu { position: relative; display: flex; align-items: center; }
+.ws-menu-button { font-size: 1.2rem; line-height: 1; padding: 0.3rem 0.7rem; opacity: 0; transition: opacity 0.12s; }
+/* Shown while pointing at the workspace (or tabbing to it) and while its menu is open; always on touch screens. */
+.workspace-item:hover .ws-menu-button,
+.workspace-item:focus-within .ws-menu-button,
+.ws-menu.open .ws-menu-button { opacity: 1; }
+@media (hover: none) { .ws-menu-button { opacity: 1; } }
+.ws-menu-list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 190px; margin: 0; padding: 6px; list-style: none; display: grid; gap: 2px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-field); box-shadow: var(--shadow); }
+.ws-menu-item { width: 100%; text-align: left; background: transparent; border: 0; color: var(--text); font-weight: 400; padding: 0.5rem 0.7rem; border-radius: 8px; }
+.ws-menu-item:hover { background: var(--bg); }
+.ws-menu-item.danger { color: var(--danger); }
+.modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, 0.45); }
+.modal { width: min(560px, 100%); max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
+.modal > .section-header { flex: none; }
+.modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+
+/* "Cách nhận thông báo": the card keeps its place and size, only the table inside scrolls. */
+.prefs { position: sticky; top: 80px; max-height: calc(100vh - 100px); display: flex; flex-direction: column; overflow: hidden; }
+.prefs > h2, .prefs > p, .prefs > .alert { flex: none; }
+.prefs-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.prefs-scroll thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); }
+@media (max-width: 800px) { .prefs { position: static; max-height: 70vh; } }
+
+.list-subtitle { margin-top: 1.5rem; }

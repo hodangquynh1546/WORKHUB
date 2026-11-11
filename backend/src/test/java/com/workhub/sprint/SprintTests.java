@@ -58,7 +58,7 @@ class SprintTests {
 	@Test
 	void productOwnersAndScrumMastersCreateSprints() throws Exception {
 		Fixture f = fixture();
-		LocalDate start = LocalDate.now();
+		LocalDate start = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
 
 		sprintBody(f.po(), f.project(), "Sprint 1", start, start.plusDays(13), f.sm().userId().toString(), 20)
 			.andExpect(status().isCreated())
@@ -252,7 +252,7 @@ class SprintTests {
 		Fixture f = fixture();
 		UUID sprint = id(createSprint(f.po(), f.project(), "Sprint"));
 		addIssues(f.po(), sprint, false, issue(f, "TASK", "A", 1, null));
-		LocalDate start = LocalDate.now();
+		LocalDate start = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
 		act(f.po(), "/api/sprints/" + sprint + "/start");
 
 		updateSprint(f.po(), sprint, "Renamed", start.plusDays(1), start.plusDays(14)).andExpect(status().isBadRequest())
@@ -397,7 +397,7 @@ class SprintTests {
 		complete(f.sm(), sprint, "ACHIEVED", "BACKLOG", null).andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("SPRINT_NOT_ACTIVE"));
 		// A completed sprint is frozen, and a new one can start.
-		updateSprint(f.po(), sprint, "Changed", LocalDate.now(), LocalDate.now().plusDays(7)).andExpect(status().isConflict())
+		updateSprint(f.po(), sprint, "Changed", LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")), LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(7)).andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("SPRINT_CLOSED"));
 		addIssues(f.po(), sprint, false, open).andExpect(status().isConflict());
 	}
@@ -475,7 +475,7 @@ class SprintTests {
 	// ---- helpers ----
 
 	private ResultActions createSprint(Session caller, UUID project, String name) throws Exception {
-		LocalDate start = LocalDate.now();
+		LocalDate start = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
 		return sprintBody(caller, project, name, start, start.plusDays(13), null, null);
 	}
 

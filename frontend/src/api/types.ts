@@ -50,6 +50,8 @@ export type Team = {
   memberCount: number
   /** Null when the signed-in user is not on the team. */
   myRole: TeamRole | null
+  /** True when the signed-in user created the team (otherwise they were invited or manage it). */
+  mine: boolean
   permissions: TeamPermission[]
 }
 
@@ -120,6 +122,10 @@ export type Project = {
   memberCount: number
   /** Null when the signed-in user is not a project member (e.g. sees it through the team). */
   myRole: ProjectRole | null
+  /** Every role the user holds in the project (they add up); empty when not a member. */
+  myRoles: ProjectRole[]
+  /** True when the signed-in user created the project (otherwise they were invited). */
+  mine: boolean
   permissions: ProjectPermission[]
 }
 
@@ -128,7 +134,9 @@ export type ProjectMember = {
   email: string
   fullName: string
   avatarUrl: string | null
+  /** The most powerful of `roles`. */
   role: ProjectRole
+  roles: ProjectRole[]
   joinedAt: string
 }
 

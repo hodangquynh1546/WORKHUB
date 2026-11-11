@@ -62,6 +62,11 @@ public class ProjectController {
 		return projectService.changeStatus(CurrentUser.id(jwt), projectId, request.status());
 	}
 
+	@GetMapping("/api/me/projects")
+	public List<ProjectResponse> mine(@AuthenticationPrincipal Jwt jwt) {
+		return projectService.listMine(CurrentUser.id(jwt));
+	}
+
 	@GetMapping("/api/projects/{projectId}/members")
 	public List<ProjectMemberResponse> members(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId) {
 		return projectService.listMembers(CurrentUser.id(jwt), projectId);
@@ -77,8 +82,8 @@ public class ProjectController {
 	@PutMapping("/api/projects/{projectId}/members/{userId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void changeRole(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId, @PathVariable UUID userId,
-			@Valid @RequestBody ProjectRequests.ChangeRole request) {
-		projectService.changeMemberRole(CurrentUser.id(jwt), projectId, userId, request.role());
+			@Valid @RequestBody ProjectRequests.ChangeRoles request) {
+		projectService.changeMemberRoles(CurrentUser.id(jwt), projectId, userId, request.roles());
 	}
 
 	@DeleteMapping("/api/projects/{projectId}/members/{userId}")

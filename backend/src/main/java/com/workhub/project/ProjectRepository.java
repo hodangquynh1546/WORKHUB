@@ -14,9 +14,8 @@ public interface ProjectRepository extends JpaRepository<Project, UUID> {
 	String ROWS = """
 			select new com.workhub.project.ProjectRow(p.id, p.workspaceId, p.teamId, t.name, p.projectKey, p.name,
 				p.description, p.avatarUrl, p.startDate, p.endDate, p.methodology, p.status, p.createdAt,
-				(select count(pm) from ProjectMember pm where pm.projectId = p.id),
-				(select my.role from ProjectMember my where my.projectId = p.id and my.userId = :userId),
-				(select tm.role from TeamMember tm where tm.teamId = p.teamId and tm.userId = :userId))
+				(select count(distinct pm.userId) from ProjectMember pm where pm.projectId = p.id),
+				(select tm.role from TeamMember tm where tm.teamId = p.teamId and tm.userId = :userId), p.createdBy)
 			from Project p join Team t on t.id = p.teamId
 			""";
 

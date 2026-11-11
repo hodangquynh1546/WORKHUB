@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -81,6 +82,68 @@ class DeletionTests {
 	}
 
 	@Test
+	void aBusyWorkspaceWithChatSprintsAndMeetingsDeletesCleanly() throws Exception {
+		Session owner = TestApi.register(mockMvc);
+		UUID ws = TestApi.createWorkspace(mockMvc, owner, "Busy");
+		UUID team = TestApi.createTeam(mockMvc, owner, ws, "Core");
+		UUID project = TestApi.createProject(mockMvc, owner, team, TestApi.uniqueKey());
+		Session dev = TestApi.joinWorkspace(mockMvc, owner, ws, "MEMBER");
+		TestApi.addToProject(mockMvc, owner, project, dev, "DEVELOPER");
+		String auth = owner.bearer();
+
+		String story = mockMvc.perform(post("/api/projects/" + project + "/issues").header("Authorization", auth)
+			.contentType(MediaType.APPLICATION_JSON).content("{\"type\":\"TASK\",\"title\":\"Parent\",\"storyPoints\":3}"))
+			.andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+		String storyId = com.jayway.jsonpath.JsonPath.read(story, "$.id");
+		mockMvc.perform(post("/api/projects/" + project + "/issues").header("Authorization", auth)
+			.contentType(MediaType.APPLICATION_JSON).content(json("type", "SUB_TASK", "title", "Child", "parentId", storyId,
+					"assigneeId", dev.userId().toString())))
+			.andExpect(status().isCreated());
+		mockMvc.perform(post("/api/issues/" + storyId + "/comments").header("Authorization", auth)
+			.contentType(MediaType.APPLICATION_JSON).content(json("body", "A comment")))
+			.andExpect(status().isCreated());
+		java.time.LocalDate start = java.time.LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+		String sprint = mockMvc.perform(post("/api/projects/" + project + "/sprints").header("Authorization", auth)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"name\":\"S1\",\"startDate\":\"" + start + "\",\"endDate\":\"" + start.plusDays(6) + "\"}"))
+			.andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+		String sprintId = com.jayway.jsonpath.JsonPath.read(sprint, "$.id");
+		mockMvc.perform(post("/api/sprints/" + sprintId + "/issues").header("Authorization", auth)
+			.contentType(MediaType.APPLICATION_JSON).content("{\"issueIds\":[\"" + storyId + "\"],\"includeChildren\":true}"))
+			.andExpect(status().isOk());
+		mockMvc.perform(post("/api/sprints/" + sprintId + "/start").header("Authorization", auth)).andExpect(status().isOk());
+		mockMvc.perform(put("/api/issues/" + storyId + "/status").header("Authorization", auth)
+			.contentType(MediaType.APPLICATION_JSON).content(json("status", "DONE"))).andExpect(status().isOk());
+
+		String channel = mockMvc.perform(post("/api/chat/projects/" + project).header("Authorization", auth))
+			.andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+		String conversation = com.jayway.jsonpath.JsonPath.read(channel, "$.id");
+		String first = mockMvc.perform(post("/api/chat/conversations/" + conversation + "/messages").header("Authorization", auth)
+			.contentType(MediaType.APPLICATION_JSON).content("{\"body\":\"hi\",\"mentionIds\":[\"" + dev.userId() + "\"]}"))
+			.andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+		String firstId = com.jayway.jsonpath.JsonPath.read(first, "$.id");
+		mockMvc.perform(post("/api/chat/conversations/" + conversation + "/messages").header("Authorization", dev.bearer())
+			.contentType(MediaType.APPLICATION_JSON).content("{\"body\":\"reply\",\"replyToId\":\"" + firstId + "\"}"))
+			.andExpect(status().isCreated());
+		mockMvc.perform(post("/api/chat/messages/" + firstId + "/reactions").header("Authorization", dev.bearer())
+			.contentType(MediaType.APPLICATION_JSON).content(json("emoji", "👍"))).andExpect(status().isOk());
+		mockMvc.perform(post("/api/chat/conversations/" + conversation + "/read").header("Authorization", dev.bearer())).andExpect(status().isOk());
+		mockMvc.perform(post("/api/chat/direct").header("Authorization", auth).contentType(MediaType.APPLICATION_JSON)
+			.content(json("workspaceId", ws.toString(), "userId", dev.userId().toString()))).andExpect(status().isOk());
+
+		java.time.Instant at = java.time.Instant.now().plusSeconds(86400);
+		mockMvc.perform(post("/api/projects/" + project + "/meetings").header("Authorization", auth)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"title\":\"Sync\",\"type\":\"GENERAL\",\"startsAt\":\"" + at + "\",\"endsAt\":\"" + at.plusSeconds(1800)
+					+ "\",\"attendeeIds\":[\"" + dev.userId() + "\"]}"))
+			.andExpect(status().isCreated());
+
+		deleteWith("/api/workspaces/" + ws, owner, "Busy").andExpect(status().isNoContent());
+		assertThat(count("conversations", "workspace_id", ws)).isZero();
+		assertThat(count("projects", "workspace_id", ws)).isZero();
+	}
+
+	@Test
 	void onlyTheOwnerMayDeleteAWorkspace() throws Exception {
 		Session owner = TestApi.register(mockMvc);
 		UUID ws = TestApi.createWorkspace(mockMvc, owner, "Safe");
@@ -102,7 +165,7 @@ class DeletionTests {
 		fill(owner, project);
 		Session member = TestApi.joinWorkspace(mockMvc, owner, ws, "MEMBER");
 
-		deleteWith("/api/teams/" + team, member, "Going").andExpect(status().isForbidden());
+		deleteWith("/api/teams/" + team, member, "Going").andExpect(status().isNotFound());
 		deleteWith("/api/teams/" + team, owner, "Nope").andExpect(status().isBadRequest());
 		deleteWith("/api/teams/" + team, owner, "Going").andExpect(status().isNoContent());
 

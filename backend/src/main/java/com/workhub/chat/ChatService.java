@@ -70,6 +70,8 @@ public class ChatService {
 
 	private final ChatMapper mapper;
 
+	private final com.workhub.user.UserRepository users;
+
 	private final AccessService access;
 
 	private final ProjectMemberRepository projectMembers;
@@ -94,7 +96,8 @@ public class ChatService {
 			ConversationReadRepository reads, ChatMapper mapper, AccessService access, ProjectMemberRepository projectMembers,
 			TeamMemberRepository teamMembers, WorkspaceMemberRepository workspaceMembers, ProjectRepository projects,
 			TeamRepository teams, NotificationService notifications, RealtimeHub hub, Clock clock,
-			ChatAttachmentRepository attachments) {
+			ChatAttachmentRepository attachments, com.workhub.user.UserRepository users) {
+		this.users = users;
 		this.attachments = attachments;
 		this.conversations = conversations;
 		this.members = members;
@@ -172,20 +175,39 @@ public class ChatService {
 		return summary(userId, c);
 	}
 
-	public ConversationSummary openDirect(UUID userId, UUID workspaceId, UUID otherId) {
+	/** Opens (or finds) the conversation with another person, given their id or exact email; no shared workspace needed. */
+	public ConversationSummary openDirect(UUID userId, UUID otherId, String email) {
+		if (otherId == null) {
+			otherId = findPerson(userId, email).id();
+		}
 		if (userId.equals(otherId)) {
 			throw ApiException.badRequest("CANNOT_CHAT_WITH_SELF", "Choose someone else");
 		}
-		requireWorkspaceMember(workspaceId, userId, "WORKSPACE_NOT_FOUND");
-		requireWorkspaceMember(workspaceId, otherId, "USER_NOT_IN_WORKSPACE");
-		String key = (userId.compareTo(otherId) < 0) ? userId + ":" + otherId : otherId + ":" + userId;
+		UUID other = otherId;
+		users.findById(other).orElseThrow(() -> ApiException.notFound("USER_NOT_FOUND", "No account with this email"));
+		String key = (userId.compareTo(other) < 0) ? userId + ":" + other : other + ":" + userId;
 		Conversation c = conversations.findByDirectKey(key).orElseGet(() -> {
-			Conversation created = conversations.saveAndFlush(Conversation.direct(workspaceId, key, userId));
+			Conversation created = conversations.saveAndFlush(Conversation.direct(key, userId));
 			addMember(created.getId(), userId);
-			addMember(created.getId(), otherId);
+			addMember(created.getId(), other);
 			return created;
 		});
 		return summary(userId, c);
+	}
+
+	/** Exact email match only, so the address book cannot be browsed; accounts that were deleted never match. */
+	@Transactional(readOnly = true)
+	public com.workhub.issue.IssueResponses.UserRef findPerson(UUID userId, String email) {
+		if (email == null || email.isBlank()) {
+			throw ApiException.badRequest("EMAIL_REQUIRED", "Enter an email address");
+		}
+		com.workhub.user.User user = users.findByEmail(com.workhub.user.User.normalizeEmail(email))
+			.filter((u) -> !u.getEmail().endsWith("@deleted.invalid"))
+			.orElseThrow(() -> ApiException.notFound("USER_NOT_FOUND", "No account with this email"));
+		if (user.getId().equals(userId)) {
+			throw ApiException.badRequest("CANNOT_CHAT_WITH_SELF", "Choose someone else");
+		}
+		return new com.workhub.issue.IssueResponses.UserRef(user.getId(), user.getFullName(), user.getAvatarUrl());
 	}
 
 	public ConversationSummary createGroup(UUID userId, UUID workspaceId, String title, List<UUID> memberIds) {

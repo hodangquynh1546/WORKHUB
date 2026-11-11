@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { Link, useNavigate, useParams } from 'react-router'
 import { api } from '../../api/client'
 import { errorMessage } from '../../api/errors'
-import type { ChatSearchHit, ConversationKind, ConversationSummary, Workspace, WorkspaceMember } from '../../api/types'
+import type { ChatSearchHit, ConversationKind, ConversationSummary, UserRef, Workspace, WorkspaceMember } from '../../api/types'
 import { useResource } from '../../api/useResource'
 import { useAuth } from '../../auth/AuthContext'
 import { Alert, Field } from '../../components/Form'
@@ -229,8 +229,9 @@ function NewConversation({ mode, onDone, onCancel }: { mode: 'direct' | 'group';
 
   return (
     <div className="stack chat-new">
+      {mode === 'direct' && <EmailFinder onDone={onDone} />}
       <label className="field">
-        <span>Workspace</span>
+        <span>{mode === 'direct' ? 'Hoặc chọn người trong workspace' : 'Workspace'}</span>
         <select value={wsId} onChange={(e) => setWorkspaceId(e.target.value)}>
           {workspaces?.map((w) => (
             <option key={w.id} value={w.id}>
@@ -241,6 +242,59 @@ function NewConversation({ mode, onDone, onCancel }: { mode: 'direct' | 'group';
       </label>
       {wsId && <PeoplePicker key={wsId} mode={mode} workspaceId={wsId} onDone={onDone} onCancel={onCancel} />}
     </div>
+  )
+}
+
+/** Finds anyone by their exact email address and opens a conversation with them: no shared workspace needed. */
+function EmailFinder({ onDone }: { onDone: (conversationId: string) => void }) {
+  const [email, setEmail] = useState('')
+  const [found, setFound] = useState<UserRef | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function search(event: FormEvent) {
+    event.preventDefault()
+    setBusy(true)
+    setError(null)
+    setFound(null)
+    try {
+      setFound(await api<UserRef>(`/api/chat/find-person?email=${encodeURIComponent(email.trim())}`))
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function message() {
+    if (!found) return
+    setError(null)
+    try {
+      onDone((await api<ConversationSummary>('/api/chat/direct', { method: 'POST', body: { userId: found.id } })).id)
+    } catch (err) {
+      setError(errorMessage(err))
+    }
+  }
+
+  return (
+    <form className="stack" onSubmit={search}>
+      <Field label="Tìm người theo email" type="email" required placeholder="ten@congty.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <button type="submit" className="button-secondary button-small" disabled={busy || !email.trim()}>
+        Tìm
+      </button>
+      <Alert>{error}</Alert>
+      {found && (
+        <div className="row">
+          <span className="workload-person">
+            <Avatar name={found.fullName} url={found.avatarUrl} />
+            {found.fullName}
+          </span>
+          <button type="button" className="button-small" onClick={message}>
+            Nhắn tin
+          </button>
+        </div>
+      )}
+    </form>
   )
 }
 
@@ -286,7 +340,7 @@ function PeoplePicker({ mode, workspaceId, onDone, onCancel }: { mode: 'direct' 
                   <Avatar name={m.fullName} url={m.avatarUrl} />
                   {m.fullName}
                 </span>
-                <button type="button" className="button-small" onClick={() => start('/api/chat/direct', { workspaceId, userId: m.userId })}>
+                <button type="button" className="button-small" onClick={() => start('/api/chat/direct', { userId: m.userId })}>
                   Nhắn tin
                 </button>
               </>

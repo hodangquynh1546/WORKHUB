@@ -53,8 +53,4 @@ public class ProjectMember {
 		return role;
 	}
 
-	void changeRole(ProjectRole role) {
-		this.role = role;
-	}
-
 }

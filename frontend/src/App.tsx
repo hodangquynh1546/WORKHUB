@@ -31,6 +31,8 @@ import { TeamPage } from './pages/TeamPage'
 import { VerifyEmailPage } from './pages/VerifyEmailPage'
 import { WorkspacePage } from './pages/WorkspacePage'
 import { WorkspacesPage } from './pages/WorkspacesPage'
+import { TeamsPage } from './pages/TeamsPage'
+import { ProjectsPage } from './pages/ProjectsPage'
 
 export default function App() {
   return (
@@ -51,6 +53,8 @@ export default function App() {
             <Route element={<Layout />}>
               <Route path="/workspaces" element={<WorkspacesPage />} />
               <Route path="/workspaces/:workspaceId" element={<WorkspacePage />} />
+              <Route path="/teams" element={<TeamsPage />} />
+              <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/chat" element={<ChatPage />} />
               <Route path="/chat/:conversationId" element={<ChatPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />

@@ -112,7 +112,7 @@ class ChatTests {
 	// ---- direct messages and groups ----
 
 	@Test
-	void directConversationsAreUniquePerPairAndStayInsideAWorkspace() throws Exception {
+	void directConversationsAreUniquePerPairAndNeedNoSharedWorkspace() throws Exception {
 		Fixture f = fixture();
 		String a = openDirect(f.dev(), f.workspace(), f.other()).andExpect(status().isOk())
 			.andExpect(jsonPath("$.kind").value("DIRECT")).andExpect(jsonPath("$.title").value(org.hamcrest.Matchers.notNullValue()))
@@ -121,9 +121,25 @@ class ChatTests {
 		// The same pair, from the other side, is the same conversation.
 		openDirect(f.other(), f.workspace(), f.dev()).andExpect(jsonPath("$.id").value(id));
 		openDirect(f.dev(), f.workspace(), f.dev()).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("CANNOT_CHAT_WITH_SELF"));
+		// Anyone can be reached by their exact email, with no workspace, team or project in common.
 		Session stranger = TestApi.register(mockMvc);
-		openDirect(f.dev(), f.workspace(), stranger).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("USER_NOT_IN_WORKSPACE"));
-		openDirect(stranger, f.workspace(), f.dev()).andExpect(status().isNotFound());
+		mockMvc.perform(get("/api/chat/find-person").param("email", stranger.email().toUpperCase()).header("Authorization", f.dev().bearer()))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.id").value(stranger.userId().toString()))
+			.andExpect(jsonPath("$.email").doesNotExist());
+		mockMvc.perform(get("/api/chat/find-person").param("email", "nobody-" + stranger.email()).header("Authorization", f.dev().bearer()))
+			.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
+		mockMvc.perform(get("/api/chat/find-person").param("email", f.dev().email()).header("Authorization", f.dev().bearer()))
+			.andExpect(status().isBadRequest());
+		String viaEmail = JsonPath.read(mockMvc.perform(post("/api/chat/direct").header("Authorization", f.dev().bearer())
+			.contentType(MediaType.APPLICATION_JSON).content("{\"email\":\"" + stranger.email() + "\"}"))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.kind").value("DIRECT")).andReturn().getResponse().getContentAsString(), "$.id");
+		openDirect(stranger, f.workspace(), f.dev()).andExpect(status().isOk());
+		send(f.dev(), viaEmail, "hello from afar", null, List.of());
+		mockMvc.perform(get("/api/chat/conversations/" + viaEmail + "/messages").header("Authorization", stranger.bearer()))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.items[0].body").value("hello from afar"));
+		// A third person still cannot read it.
+		mockMvc.perform(get("/api/chat/conversations/" + viaEmail + "/messages").header("Authorization", f.other().bearer()))
+			.andExpect(status().isNotFound());
 
 		send(f.dev(), id, "psst", null, List.of());
 		conversations(f.other()).andExpect(jsonPath("$[?(@.id=='" + id + "')].unread").value(1))
@@ -289,7 +305,7 @@ class ChatTests {
 
 	private ResultActions openDirect(Session caller, UUID workspace, UUID other) throws Exception {
 		return mockMvc.perform(post("/api/chat/direct").header("Authorization", caller.bearer()).contentType(MediaType.APPLICATION_JSON)
-			.content("{\"workspaceId\":\"" + workspace + "\",\"userId\":\"" + other + "\"}"));
+			.content("{\"userId\":\"" + other + "\"}"));
 	}
 
 	private ResultActions createGroup(Session caller, UUID workspace, String title, List<UUID> members) throws Exception {

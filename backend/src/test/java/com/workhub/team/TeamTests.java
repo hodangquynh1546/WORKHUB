@@ -45,11 +45,11 @@ class TeamTests {
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(json("name", "Rogue"))).andExpect(status().isForbidden());
 
-		// Every workspace member can see the teams, read-only.
+		// A workspace member who is not on a team does not see it at all (someone invited to one team sees only that one).
 		mockMvc.perform(get("/api/workspaces/" + ws + "/teams").header("Authorization", member.bearer()))
-			.andExpect(jsonPath("$.length()").value(1))
-			.andExpect(jsonPath("$[0].myRole").doesNotExist())
-			.andExpect(jsonPath("$[0].permissions").value(org.hamcrest.Matchers.contains("VIEW")));
+			.andExpect(jsonPath("$.length()").value(0));
+		mockMvc.perform(get("/api/me/teams").header("Authorization", member.bearer())).andExpect(jsonPath("$.length()").value(0));
+		mockMvc.perform(get("/api/me/teams").header("Authorization", owner.bearer())).andExpect(jsonPath("$.length()").value(1));
 	}
 
 	@Test
@@ -78,7 +78,7 @@ class TeamTests {
 		addMember(lead, frontend, dev.userId(), "MEMBER").andExpect(status().isNoContent());
 		addMember(lead, frontend, dev.userId(), "MEMBER").andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("ALREADY_MEMBER"));
-		addMember(lead, mobile, dev.userId(), "MEMBER").andExpect(status().isForbidden());
+		addMember(lead, mobile, dev.userId(), "MEMBER").andExpect(status().isNotFound());
 		addMember(dev, frontend, owner.userId(), "MEMBER").andExpect(status().isForbidden());
 
 		mockMvc.perform(put("/api/teams/" + frontend + "/members/" + dev.userId()).header("Authorization", lead.bearer())
@@ -110,7 +110,7 @@ class TeamTests {
 		UUID team = TestApi.createTeam(mockMvc, owner, ws, "Legacy");
 
 		mockMvc.perform(post("/api/teams/" + team + "/archive").header("Authorization", member.bearer()))
-			.andExpect(status().isForbidden());
+			.andExpect(status().isNotFound());
 		mockMvc.perform(post("/api/teams/" + team + "/archive").header("Authorization", owner.bearer()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.archived").value(true));
@@ -146,6 +146,61 @@ class TeamTests {
 		return mockMvc.perform(post("/api/teams/" + team + "/members").header("Authorization", caller.bearer())
 			.contentType(MediaType.APPLICATION_JSON)
 			.content(json("userId", userId.toString(), "role", role)));
+	}
+
+
+	@Test
+	void someoneInvitedToOneTeamOrProjectSeesOnlyThat() throws Exception {
+		Session owner = TestApi.register(mockMvc);
+		UUID ws = TestApi.createWorkspace(mockMvc, owner, "Scoped");
+		UUID teamA = TestApi.createTeam(mockMvc, owner, ws, "A");
+		UUID teamB = TestApi.createTeam(mockMvc, owner, ws, "B");
+		UUID projectA = TestApi.createProject(mockMvc, owner, teamA, TestApi.uniqueKey());
+		UUID projectB = TestApi.createProject(mockMvc, owner, teamB, TestApi.uniqueKey());
+		UUID projectA2 = TestApi.createProject(mockMvc, owner, teamA, TestApi.uniqueKey());
+
+		// Invited to team A: sees team A and its projects, nothing of team B.
+		Session inTeam = TestApi.register(mockMvc);
+		TestApi.accept(mockMvc, inTeam, TestApi.linkToken(mockMvc, owner, "/api/teams/" + teamA + "/invitations", "MEMBER"));
+		mockMvc.perform(get("/api/me/teams").header("Authorization", inTeam.bearer()))
+			.andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].id").value(teamA.toString()))
+			.andExpect(jsonPath("$[0].mine").value(false));
+		mockMvc.perform(get("/api/me/teams").header("Authorization", owner.bearer())).andExpect(jsonPath("$[0].mine").value(true));
+		mockMvc.perform(get("/api/me/projects").header("Authorization", owner.bearer())).andExpect(jsonPath("$[0].mine").value(true));
+		mockMvc.perform(get("/api/me/projects").header("Authorization", inTeam.bearer())).andExpect(jsonPath("$[0].mine").value(false));
+		mockMvc.perform(get("/api/me/projects").header("Authorization", inTeam.bearer()))
+			.andExpect(jsonPath("$.length()").value(2));
+		// The workspace itself is not theirs: it is not listed and cannot be opened, nor its member list.
+		mockMvc.perform(get("/api/workspaces").header("Authorization", inTeam.bearer())).andExpect(jsonPath("$.length()").value(0));
+		mockMvc.perform(get("/api/workspaces/" + ws).header("Authorization", inTeam.bearer())).andExpect(status().isNotFound());
+		mockMvc.perform(get("/api/workspaces/" + ws + "/members").header("Authorization", inTeam.bearer())).andExpect(status().isNotFound());
+		mockMvc.perform(get("/api/teams/" + teamB).header("Authorization", inTeam.bearer())).andExpect(status().isNotFound());
+		mockMvc.perform(get("/api/projects/" + projectB).header("Authorization", inTeam.bearer())).andExpect(status().isNotFound());
+
+		// Invited to one project: sees only that project, no teams.
+		Session inProject = TestApi.register(mockMvc);
+		TestApi.accept(mockMvc, inProject, TestApi.linkToken(mockMvc, owner, "/api/projects/" + projectA + "/invitations", "DEVELOPER"));
+		mockMvc.perform(get("/api/workspaces").header("Authorization", inProject.bearer())).andExpect(jsonPath("$.length()").value(0));
+		mockMvc.perform(get("/api/me/teams").header("Authorization", inProject.bearer())).andExpect(jsonPath("$.length()").value(0));
+		mockMvc.perform(get("/api/me/projects").header("Authorization", inProject.bearer()))
+			.andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].id").value(projectA.toString()));
+		mockMvc.perform(get("/api/projects/" + projectA2).header("Authorization", inProject.bearer())).andExpect(status().isNotFound());
+		mockMvc.perform(get("/api/teams/" + teamA).header("Authorization", inProject.bearer())).andExpect(status().isNotFound());
+	}
+
+
+	@Test
+	void aWorkspaceInvitationTurnsAGuestIntoAMember() throws Exception {
+		Session owner = TestApi.register(mockMvc);
+		UUID ws = TestApi.createWorkspace(mockMvc, owner, "Upgrade");
+		UUID team = TestApi.createTeam(mockMvc, owner, ws, "T");
+		Session person = TestApi.register(mockMvc);
+		TestApi.accept(mockMvc, person, TestApi.linkToken(mockMvc, owner, "/api/teams/" + team + "/invitations", "MEMBER"));
+		mockMvc.perform(get("/api/workspaces").header("Authorization", person.bearer())).andExpect(jsonPath("$.length()").value(0));
+
+		TestApi.accept(mockMvc, person, TestApi.linkToken(mockMvc, owner, "/api/workspaces/" + ws + "/invitations", "MEMBER"));
+		mockMvc.perform(get("/api/workspaces").header("Authorization", person.bearer())).andExpect(jsonPath("$.length()").value(1));
+		mockMvc.perform(get("/api/workspaces/" + ws).header("Authorization", person.bearer())).andExpect(status().isOk());
 	}
 
 }

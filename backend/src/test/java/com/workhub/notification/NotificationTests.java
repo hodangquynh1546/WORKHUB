@@ -163,7 +163,7 @@ class NotificationTests {
 		UUID issue = issue(f, f.owner(), "In sprint", null, null);
 		UUID sprint = UUID.fromString(JsonPath.read(mockMvc.perform(post("/api/projects/" + f.project() + "/sprints")
 			.header("Authorization", f.owner().bearer()).contentType(MediaType.APPLICATION_JSON)
-			.content("{\"name\":\"Sprint 1\",\"startDate\":\"" + LocalDate.now() + "\",\"endDate\":\"" + LocalDate.now().plusDays(13) + "\"}"))
+			.content("{\"name\":\"Sprint 1\",\"startDate\":\"" + LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")) + "\",\"endDate\":\"" + LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(13) + "\"}"))
 			.andReturn().getResponse().getContentAsString(), "$.id"));
 		mockMvc.perform(post("/api/sprints/" + sprint + "/issues").header("Authorization", f.owner().bearer())
 			.contentType(MediaType.APPLICATION_JSON).content("{\"issueIds\":[\"" + issue + "\"],\"includeChildren\":false}"));
@@ -222,7 +222,7 @@ class NotificationTests {
 	@Test
 	void overdueAndDueSoonWorkIsReportedAndNotifiedOncePerIssue() throws Exception {
 		Fixture f = fixture();
-		LocalDate today = LocalDate.now();
+		LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
 		UUID overdue = issue(f, f.owner(), "Late", today.minusDays(3), f.dev());
 		UUID soon = issue(f, f.owner(), "Soon", today.plusDays(1), f.dev());
 		issue(f, f.owner(), "Far", today.plusDays(20), f.dev());
@@ -245,7 +245,7 @@ class NotificationTests {
 	@Test
 	void thresholdsAreConfigurableAndOnlyManagersChangeThem() throws Exception {
 		Fixture f = fixture();
-		LocalDate today = LocalDate.now();
+		LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
 		issue(f, f.owner(), "Late", today.minusDays(1), f.dev());
 		issue(f, f.owner(), "Soon", today.plusDays(1), f.dev());
 
@@ -304,7 +304,7 @@ class NotificationTests {
 		setPoints(f, open, 8);
 		UUID sprint = UUID.fromString(JsonPath.read(mockMvc.perform(post("/api/projects/" + f.project() + "/sprints")
 			.header("Authorization", f.owner().bearer()).contentType(MediaType.APPLICATION_JSON)
-			.content("{\"name\":\"Sprint 1\",\"startDate\":\"" + LocalDate.now() + "\",\"endDate\":\"" + LocalDate.now().plusDays(1) + "\"}"))
+			.content("{\"name\":\"Sprint 1\",\"startDate\":\"" + LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")) + "\",\"endDate\":\"" + LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(1) + "\"}"))
 			.andReturn().getResponse().getContentAsString(), "$.id"));
 		mockMvc.perform(post("/api/sprints/" + sprint + "/issues").header("Authorization", f.owner().bearer())
 			.contentType(MediaType.APPLICATION_JSON).content("{\"issueIds\":[\"" + done + "\",\"" + open + "\"],\"includeChildren\":false}"));

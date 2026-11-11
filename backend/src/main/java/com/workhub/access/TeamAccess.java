@@ -15,17 +15,17 @@ public record TeamAccess(Team team, UUID userId, WorkspaceRole workspaceRole, Te
 
 	private static final Set<TeamPermission> ALL = Collections.unmodifiableSet(EnumSet.allOf(TeamPermission.class));
 
-	private static final Set<TeamPermission> VIEW_ONLY = Collections.unmodifiableSet(EnumSet.of(TeamPermission.VIEW));
 
 	/**
 	 * Workspace roles with {@link WorkspacePermission#MANAGE_TEAMS} act as lead of every team; otherwise the team
-	 * role decides, and any other workspace member may view.
+	 * role decides. A workspace member who is not on the team has no access to it (empty set), so someone invited to
+	 * one team or project only sees what they were invited to.
 	 */
 	public static Set<TeamPermission> permissionsFor(WorkspaceRole workspaceRole, TeamRole teamRole) {
 		if (workspaceRole.permissions().contains(WorkspacePermission.MANAGE_TEAMS)) {
 			return ALL;
 		}
-		return (teamRole != null) ? teamRole.permissions() : VIEW_ONLY;
+		return (teamRole != null) ? teamRole.permissions() : Set.of();
 	}
 
 	public Set<TeamPermission> permissions() {

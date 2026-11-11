@@ -63,10 +63,12 @@ public class InvitationService {
 
 	private final Clock clock;
 
+	private final org.springframework.context.ApplicationEventPublisher events;
+
 	public InvitationService(AccessService access, InvitationRepository invitations,
 			WorkspaceMemberRepository workspaceMembers, TeamRepository teams, TeamMemberRepository teamMembers,
 			ProjectRepository projects, ProjectMemberRepository projectMembers, UserRepository users, UserService userService, EmailSender emailSender, InvitationProperties properties,
-			AuthProperties authProperties, Clock clock) {
+			AuthProperties authProperties, Clock clock, org.springframework.context.ApplicationEventPublisher events) {
 		this.access = access;
 		this.invitations = invitations;
 		this.workspaceMembers = workspaceMembers;
@@ -80,6 +82,7 @@ public class InvitationService {
 		this.properties = properties;
 		this.authProperties = authProperties;
 		this.clock = clock;
+		this.events = events;
 	}
 
 	// ---- create / list / revoke (inviter side) ----
@@ -120,7 +123,7 @@ public class InvitationService {
 	public InvitationRequests.Created inviteToProject(UUID userId, UUID projectId, InvitationRequests.Create request) {
 		Project project = access.project(userId, projectId).require(ProjectPermission.MANAGE_MEMBERS).requireActive().project();
 		ProjectRole role = parseProjectRole(request.role());
-		if (role == ProjectRole.PRODUCT_OWNER || role == ProjectRole.SCRUM_MASTER) {
+		if (role.isSingleHolder()) {
 			if (projectMembers.existsByProjectIdAndRole(projectId, role)) {
 				throw ApiException.conflict("ROLE_TAKEN", "Only one member can be " + role);
 			}
@@ -157,6 +160,7 @@ public class InvitationService {
 		requireCanManage(userId, invitation);
 		if (invitation.getStatus() == InvitationStatus.PENDING) {
 			invitation.revoke();
+			changed(invitation, userId);
 		}
 	}
 
@@ -209,9 +213,15 @@ public class InvitationService {
 			}
 		}
 		// Existing memberships are kept as they are; an invitation never changes someone's role.
-		if (!workspaceMembers.existsByWorkspaceIdAndUserId(invitation.getWorkspaceId(), userId)) {
-			WorkspaceRole role = (team == null && project == null) ? WorkspaceRole.valueOf(invitation.getRole()) : WorkspaceRole.MEMBER;
-			workspaceMembers.save(new WorkspaceMember(invitation.getWorkspaceId(), userId, role));
+		boolean workspaceInvite = team == null && project == null;
+		WorkspaceMember existing = workspaceMembers.findByWorkspaceIdAndUserId(invitation.getWorkspaceId(), userId).orElse(null);
+		if (existing == null) {
+			WorkspaceRole role = workspaceInvite ? WorkspaceRole.valueOf(invitation.getRole()) : WorkspaceRole.MEMBER;
+			// Team and project invitations bring a guest: they get the team or project, not the workspace.
+			workspaceMembers.save(new WorkspaceMember(invitation.getWorkspaceId(), userId, role, !workspaceInvite));
+		}
+		else if (existing.isGuest() && workspaceInvite) {
+			existing.becomeMember(WorkspaceRole.valueOf(invitation.getRole()));
 		}
 		if (team != null && !teamMembers.existsByTeamIdAndUserId(team.getId(), userId)) {
 			teamMembers.save(new TeamMember(team.getId(), userId, TeamRole.valueOf(invitation.getRole())));
@@ -219,7 +229,7 @@ public class InvitationService {
 		if (project != null && !projectMembers.existsByProjectIdAndUserId(project.getId(), userId)) {
 			ProjectRole role = ProjectRole.valueOf(invitation.getRole());
 			// The single-holder role may have been given to someone else since the invitation went out.
-			if ((role == ProjectRole.PRODUCT_OWNER || role == ProjectRole.SCRUM_MASTER) && projectMembers.existsByProjectIdAndRole(project.getId(), role)) {
+			if (role.isSingleHolder() && projectMembers.existsByProjectIdAndRole(project.getId(), role)) {
 				role = ProjectRole.DEVELOPER;
 			}
 			projectMembers.save(new ProjectMember(project.getId(), userId, role));
@@ -227,6 +237,7 @@ public class InvitationService {
 		if (invitation.getKind() == InvitationKind.EMAIL) {
 			invitation.respond(InvitationStatus.ACCEPTED, userId, now);
 		}
+		changed(invitation, userId);
 		return new InvitationRequests.Accepted(invitation.getWorkspaceId(), invitation.getTeamId(), invitation.getProjectId());
 	}
 
@@ -238,9 +249,15 @@ public class InvitationService {
 		requireUsable(invitation, now);
 		requireAddressee(invitation, userService.require(userId));
 		invitation.respond(InvitationStatus.DECLINED, userId, now);
+		changed(invitation, userId);
 	}
 
 	// ---- helpers ----
+
+	private void changed(Invitation invitation, UUID actorId) {
+		events.publishEvent(new InvitationRealtime.Changed(invitation.getWorkspaceId(), invitation.getTeamId(), invitation.getProjectId(),
+				invitation.getEmail(), actorId));
+	}
 
 	private InvitationRequests.Created create(UUID workspaceId, UUID teamId, UUID projectId, InvitationKind kind, String email,
 			String role, UUID inviterId) {
@@ -260,6 +277,7 @@ public class InvitationService {
 		if (kind == InvitationKind.EMAIL) {
 			sendEmail(view, url);
 		}
+		changed(invitation, inviterId);
 		return new InvitationRequests.Created(view, url);
 	}
 

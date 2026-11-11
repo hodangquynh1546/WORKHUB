@@ -87,10 +87,13 @@ public class Project {
 	void update(ProjectDetails details) {
 		this.name = details.name();
 		this.description = details.description();
-		this.avatarUrl = details.avatarUrl();
 		this.startDate = details.startDate();
 		this.endDate = details.endDate();
 		this.methodology = details.methodology();
+	}
+
+	void changeAvatarUrl(String avatarUrl) {
+		this.avatarUrl = avatarUrl;
 	}
 
 	void changeStatus(ProjectStatus status) {
@@ -103,6 +106,10 @@ public class Project {
 
 	public UUID getId() {
 		return id;
+	}
+
+	public UUID getCreatedBy() {
+		return createdBy;
 	}
 
 	public UUID getWorkspaceId() {

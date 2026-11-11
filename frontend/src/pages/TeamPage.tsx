@@ -8,6 +8,7 @@ import { useAuth } from '../auth/AuthContext'
 import { CreateProjectForm } from '../components/CreateProjectForm'
 import { Alert, Field } from '../components/Form'
 import { DeleteZone } from '../components/DeleteZone'
+import { useInvitationsLive } from '../realtime/useInvitationsLive'
 import { InviteForm, PendingInvitations } from '../components/Invitations'
 import { ProjectList } from '../components/ProjectList'
 import { TEAM_ROLE_LABELS } from './roles'
@@ -23,12 +24,13 @@ export function TeamPage() {
   const { teamId } = useParams()
   const navigate = useNavigate()
   const { data: team, error, reload } = useResource<Team>(`/api/teams/${teamId}`)
+  useInvitationsLive(reload)
 
   if (error) {
     return (
       <>
         <Alert>{error}</Alert>
-        <Link to="/workspaces">← Danh sách workspace</Link>
+        <Link to="/teams">← Danh sách team</Link>
       </>
     )
   }
@@ -78,7 +80,8 @@ export function TeamPage() {
 }
 
 function TeamProjects({ team }: { team: Team }) {
-  const { data: projects, error } = useResource<Project[]>(`/api/teams/${team.id}/projects`)
+  const { data: projects, error, reload } = useResource<Project[]>(`/api/teams/${team.id}/projects`)
+  useInvitationsLive(reload)
   const [creating, setCreating] = useState(false)
   const canCreate = team.permissions.includes('MANAGE_PROJECTS') && !team.archived
 
@@ -104,6 +107,7 @@ function TeamMembers({ team, canManage, onChanged }: { team: Team; canManage: bo
   const { user } = useAuth()
   const navigate = useNavigate()
   const { data: members, error, reload } = useResource<TeamMember[]>(`/api/teams/${team.id}/members`)
+  useInvitationsLive(reload)
   const [actionError, setActionError] = useState<string | null>(null)
 
   function refresh() {
@@ -247,6 +251,7 @@ function AddFromWorkspace({ team, existing, onAdded }: { team: Team; existing: T
 
 function TeamInvitations({ team }: { team: Team }) {
   const { data, reload } = useResource<Invitation[]>(`/api/teams/${team.id}/invitations`)
+  useInvitationsLive(reload)
   return (
     <section className="card stack">
       <h2>Mời vào team</h2>

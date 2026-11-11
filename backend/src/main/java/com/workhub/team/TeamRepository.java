@@ -21,7 +21,7 @@ public interface TeamRepository extends JpaRepository<Team, UUID> {
 	@Query("""
 			select new com.workhub.team.TeamRow(t.id, t.workspaceId, t.name, t.description, t.archivedAt, t.createdAt,
 				(select count(tm) from TeamMember tm where tm.teamId = t.id),
-				(select my.role from TeamMember my where my.teamId = t.id and my.userId = :userId))
+				(select my.role from TeamMember my where my.teamId = t.id and my.userId = :userId), t.createdBy)
 			from Team t
 			where t.workspaceId = :workspaceId
 				and ((:archived = true and t.archivedAt is not null) or (:archived = false and t.archivedAt is null))

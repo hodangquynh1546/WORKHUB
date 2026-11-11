@@ -114,8 +114,9 @@ class InvitationTests {
 		String token = TestApi.linkToken(mockMvc, owner, "/api/teams/" + team + "/invitations", "LEAD");
 		accept(invitee, token).andExpect(jsonPath("$.teamId").value(team.toString()));
 
+		// They are in the workspace only as a guest: they reach the team or project, not the workspace itself.
 		mockMvc.perform(get("/api/workspaces/" + ws).header("Authorization", invitee.bearer()))
-			.andExpect(jsonPath("$.myRole").value("MEMBER"));
+			.andExpect(status().isNotFound());
 		mockMvc.perform(get("/api/teams/" + team).header("Authorization", invitee.bearer()))
 			.andExpect(jsonPath("$.myRole").value("LEAD"));
 	}
@@ -131,12 +132,13 @@ class InvitationTests {
 		String token = TestApi.linkToken(mockMvc, owner, "/api/projects/" + project + "/invitations", "QA_ENGINEER");
 		accept(invitee, token).andExpect(jsonPath("$.projectId").value(project.toString()));
 
+		// They are in the workspace only as a guest: they reach the team or project, not the workspace itself.
 		mockMvc.perform(get("/api/workspaces/" + ws).header("Authorization", invitee.bearer()))
-			.andExpect(jsonPath("$.myRole").value("MEMBER"));
+			.andExpect(status().isNotFound());
 		mockMvc.perform(get("/api/projects/" + project).header("Authorization", invitee.bearer()))
 			.andExpect(status().isOk());
 		mockMvc.perform(get("/api/teams/" + team).header("Authorization", invitee.bearer()))
-			.andExpect(jsonPath("$.myRole").doesNotExist());
+			.andExpect(status().isNotFound());
 		mockMvc.perform(get("/api/projects/" + project + "/invitations").header("Authorization", owner.bearer()))
 			.andExpect(status().isOk());
 		// A plain workspace member cannot invite into the project.

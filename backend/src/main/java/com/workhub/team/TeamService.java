@@ -33,14 +33,18 @@ public class TeamService {
 
 	private final Clock clock;
 
+	private final com.workhub.common.CascadeCleaner cascadeCleaner;
+
 	public TeamService(AccessService access, TeamRepository teams, TeamMemberRepository members,
-			WorkspaceMemberRepository workspaceMembers, Clock clock, com.workhub.notification.NotificationService notifications) {
+			WorkspaceMemberRepository workspaceMembers, Clock clock, com.workhub.notification.NotificationService notifications,
+			com.workhub.common.CascadeCleaner cascadeCleaner) {
 		this.notifications = notifications;
 		this.access = access;
 		this.teams = teams;
 		this.members = members;
 		this.workspaceMembers = workspaceMembers;
 		this.clock = clock;
+		this.cascadeCleaner = cascadeCleaner;
 	}
 
 	/** The creator becomes the team's lead. */
@@ -62,8 +66,15 @@ public class TeamService {
 			.stream()
 			.map((row) -> new TeamResponse(row.id(), row.workspaceId(), row.name(), row.description(),
 					row.archivedAt() != null, row.createdAt(), row.memberCount(), row.myRole(),
-					TeamAccess.permissionsFor(workspace.role(), row.myRole())))
+					TeamAccess.permissionsFor(workspace.role(), row.myRole()), userId.equals(row.createdBy())))
+			.filter((team) -> !team.permissions().isEmpty())
 			.toList();
+	}
+
+	/** Every active team the caller can reach, across all their workspaces. */
+	@Transactional(readOnly = true)
+	public List<TeamResponse> listMine(UUID userId) {
+		return workspaceMembers.findWorkspaceIds(userId).stream().flatMap((id) -> list(userId, id, false).stream()).toList();
 	}
 
 	@Transactional(readOnly = true)
@@ -86,6 +97,7 @@ public class TeamService {
 	public void delete(UUID userId, UUID teamId, DeleteConfirmation confirmation) {
 		TeamAccess team = access.team(userId, teamId).require(TeamPermission.DELETE_TEAM);
 		confirmation.require(team.team().getName());
+		cascadeCleaner.beforeDeletingTeam(teamId);
 		teams.delete(team.team());
 	}
 
@@ -142,7 +154,8 @@ public class TeamService {
 
 	private static TeamResponse response(Team team, long memberCount, TeamAccess access) {
 		return new TeamResponse(team.getId(), team.getWorkspaceId(), team.getName(), team.getDescription(),
-				team.isArchived(), team.getCreatedAt(), memberCount, access.teamRole(), access.permissions());
+				team.isArchived(), team.getCreatedAt(), memberCount, access.teamRole(), access.permissions(),
+				access.userId().equals(team.getCreatedBy()));
 	}
 
 	private static ApiException nameTaken() {

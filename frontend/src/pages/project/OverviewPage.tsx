@@ -126,7 +126,7 @@ export function OverviewPage() {
           <Alert>{error}</Alert>
           {members &&
             LEADERSHIP.map((role) => {
-              const holders = members.filter((m) => m.role === role)
+              const holders = members.filter((m) => m.roles.includes(role))
               return (
                 <div key={role} className="leader-row">
                   <span className="muted small">{PROJECT_ROLE_LABELS[role]}</span>
@@ -143,7 +143,7 @@ export function OverviewPage() {
               {PROJECT_ROLES.map((role) => (
                 <li key={role} className="row">
                   <span>{PROJECT_ROLE_LABELS[role]}</span>
-                  <strong>{members.filter((m) => m.role === role).length}</strong>
+                  <strong>{members.filter((m) => m.roles.includes(role)).length}</strong>
                 </li>
               ))}
             </ul>

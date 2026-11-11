@@ -15,8 +15,8 @@ import java.util.Set;
 import com.workhub.access.ProjectPermission;
 
 /**
- * One role per member per project. PRODUCT_OWNER and SCRUM_MASTER are held by at most one member each
- * (Scrum accountabilities); a project always keeps at least one PROJECT_MANAGER.
+ * A member may hold several roles in a project (their permissions add up). PROJECT_MANAGER and SCRUM_MASTER are held
+ * by at most one member each; a project always keeps its PROJECT_MANAGER.
  */
 public enum ProjectRole {
 
@@ -38,8 +38,13 @@ public enum ProjectRole {
 	}
 
 	/** Roles only one member of a project may hold. */
-	boolean isSingleHolder() {
-		return this == PRODUCT_OWNER || this == SCRUM_MASTER;
+	public boolean isSingleHolder() {
+		return this == PROJECT_MANAGER || this == SCRUM_MASTER;
+	}
+
+	/** The role shown first when someone holds several (the declaration order above, most powerful first). */
+	public static ProjectRole primary(java.util.Collection<ProjectRole> roles) {
+		return roles.stream().min(java.util.Comparator.naturalOrder()).orElse(null);
 	}
 
 }

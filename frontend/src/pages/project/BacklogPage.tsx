@@ -149,9 +149,12 @@ export function BacklogPage() {
 
   const groups = useMemo(() => {
     if (!items) return []
-    if (!groupByEpic) return [{ key: 'all', title: null as string | null, issues: items }]
+    // An issue whose parent is in the list shows nested under it (▸), not a second time at the top level.
+    const ids = new Set(items.map((i) => i.id))
+    const roots = items.filter((i) => !(i.parent && ids.has(i.parent.id)))
+    if (!groupByEpic) return [{ key: 'all', title: null as string | null, issues: roots }]
     const byEpic = new Map<string, { key: string; title: string | null; issues: Issue[] }>()
-    for (const issue of items) {
+    for (const issue of roots) {
       const epic = issue.type === 'EPIC' ? issue : issue.epic
       const key = epic?.id ?? 'none'
       if (!byEpic.has(key)) byEpic.set(key, { key, title: epic ? `${epic.key} · ${epic.title}` : 'Không thuộc Epic nào', issues: [] })
@@ -403,18 +406,53 @@ function IssueRow({
         ) : (
           <ul className="plain-list subtask-list">
             {subtasks.map((c) => (
-              <li key={c.id} className="subtask-row">
-                <span className="project-key">{c.key}</span> <TypeBadge type={c.type} />
-                <Link to={`/issues/${c.id}`}>{c.title}</Link>
-                <span className={`badge status-${c.status.toLowerCase()}`}>{workflow.names[c.status]}</span>
-                <Assignee user={c.assignee} />
-              </li>
+              <ChildRow key={c.id} issue={c} workflow={workflow} refreshKey={refreshKey} />
             ))}
           </ul>
         )}
       </li>
     )}
     </Fragment>
+  )
+}
+
+/** A nested child; it can be opened again when it has children of its own (Epic > Feature > Story > Sub-task). */
+function ChildRow({ issue, workflow, refreshKey }: { issue: Issue; workflow: ReturnType<typeof useWorkflow>; refreshKey: number }) {
+  const [open, setOpen] = useState(false)
+  const [children, setChildren] = useState<Issue[] | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    api<{ children: Issue[] }>(`/api/issues/${issue.id}`)
+      .then((detail) => !cancelled && setChildren(detail.children))
+      .catch(() => !cancelled && setChildren([]))
+    return () => {
+      cancelled = true
+    }
+  }, [open, issue.id, issue.childCount, refreshKey])
+
+  return (
+    <li className="subtask-row-wrap">
+      <div className="subtask-row">
+        {issue.childCount > 0 ? (
+          <button type="button" className="expand-toggle" aria-expanded={open} aria-label={open ? 'Thu gọn việc con' : 'Mở rộng việc con'} onClick={() => setOpen((v) => !v)}>
+            {open ? '▾' : '▸'}
+          </button>
+        ) : (
+          <span className="expand-toggle expand-spacer" aria-hidden="true" />
+        )}
+        <span className="project-key">{issue.key}</span> <TypeBadge type={issue.type} />
+        <Link to={`/issues/${issue.id}`}>{issue.title}</Link>
+        <span className={`badge status-${issue.status.toLowerCase()}`}>{workflow.names[issue.status]}</span>
+        <Assignee user={issue.assignee} />
+      </div>
+      {open && (
+        <ul className="plain-list subtask-list">
+          {children === null ? <li className="muted small">Đang tải…</li> : children.map((c) => <ChildRow key={c.id} issue={c} workflow={workflow} refreshKey={refreshKey} />)}
+        </ul>
+      )}
+    </li>
   )
 }
 

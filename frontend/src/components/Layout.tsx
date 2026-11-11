@@ -39,6 +39,10 @@ export function Layout() {
         </NavLink>
         <nav>
           <NavLink to="/workspaces">Workspaces</NavLink>
+          <NavLink to="/teams">Team</NavLink>
+          <NavLink to="/projects" end>
+            Dự án
+          </NavLink>
           <NavLink to="/chat">
             Trò chuyện
             {unread.chat > 0 && <span className="badge-count nav-count">{unread.chat > 99 ? '99+' : unread.chat}</span>}

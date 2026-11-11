@@ -69,7 +69,7 @@ class BoardTests {
 			.andExpect(jsonPath("$.columns.length()").value(5))
 			.andExpect(jsonPath("$.columns[0].name").value("Cần làm"));
 
-		LocalDate start = LocalDate.now();
+		LocalDate start = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
 		UUID sprint = UUID.fromString(JsonPath.read(mockMvc.perform(post("/api/projects/" + f.project() + "/sprints")
 			.header("Authorization", f.po().bearer()).contentType(MediaType.APPLICATION_JSON)
 			.content("{\"name\":\"S1\",\"goal\":\"Ship it\",\"startDate\":\"" + start + "\",\"endDate\":\"" + start.plusDays(13) + "\"}"))

@@ -74,6 +74,10 @@ public class Team {
 		return id;
 	}
 
+	public UUID getCreatedBy() {
+		return createdBy;
+	}
+
 	public UUID getWorkspaceId() {
 		return workspaceId;
 	}

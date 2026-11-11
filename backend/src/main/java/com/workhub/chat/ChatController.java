@@ -39,17 +39,23 @@ public class ChatController {
 
 	@GetMapping("/api/chat/conversations")
 	public List<ConversationSummary> conversations(@AuthenticationPrincipal Jwt jwt) {
-		return chat.list(CurrentUser.id(jwt));
+		return retryOnRace(() -> chat.list(CurrentUser.id(jwt)));
 	}
 
 	@PostMapping("/api/chat/projects/{projectId}")
 	public ConversationSummary openProject(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId) {
-		return chat.openProject(CurrentUser.id(jwt), projectId);
+		return retryOnRace(() -> chat.openProject(CurrentUser.id(jwt), projectId));
 	}
 
 	@PostMapping("/api/chat/direct")
 	public ConversationSummary openDirect(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ChatRequests.OpenDirect request) {
-		return chat.openDirect(CurrentUser.id(jwt), request.workspaceId(), request.userId());
+		return retryOnRace(() -> chat.openDirect(CurrentUser.id(jwt), request.userId(), request.email()));
+	}
+
+	/** Finds one person by their exact email address, to start a conversation with them. */
+	@GetMapping("/api/chat/find-person")
+	public com.workhub.issue.IssueResponses.UserRef findPerson(@AuthenticationPrincipal Jwt jwt, @RequestParam String email) {
+		return chat.findPerson(CurrentUser.id(jwt), email);
 	}
 
 	@PostMapping("/api/chat/groups")
@@ -153,6 +159,20 @@ public class ChatController {
 	public List<SearchHit> search(@AuthenticationPrincipal Jwt jwt, @RequestParam String q,
 			@RequestParam(required = false) UUID conversationId) {
 		return chat.search(CurrentUser.id(jwt), q, conversationId);
+	}
+
+	/**
+	 * Channels and read markers are created on first use, so two requests arriving together (a page that fires its
+	 * effect twice, two tabs) can both try to insert the same row; the unique index refuses the second one. The
+	 * retry then simply finds what the first one created.
+	 */
+	private static <T> T retryOnRace(java.util.function.Supplier<T> action) {
+		try {
+			return action.get();
+		}
+		catch (org.springframework.dao.DataIntegrityViolationException ex) {
+			return action.get();
+		}
 	}
 
 }

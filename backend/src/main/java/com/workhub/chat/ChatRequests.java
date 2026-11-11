@@ -24,7 +24,8 @@ public final class ChatRequests {
 	public record React(@NotBlank @Size(max = 16) String emoji) {
 	}
 
-	public record OpenDirect(@NotNull UUID workspaceId, @NotNull UUID userId) {
+	/** Either the person's id (from a shared channel) or their exact email address; no shared workspace is needed. */
+	public record OpenDirect(UUID userId, @jakarta.validation.constraints.Email @Size(max = 255) String email) {
 	}
 
 	public record CreateGroup(@NotNull UUID workspaceId, @NotBlank @Size(max = 100) String title,

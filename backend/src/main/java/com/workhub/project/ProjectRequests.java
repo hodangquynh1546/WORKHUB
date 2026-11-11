@@ -24,14 +24,12 @@ public final class ProjectRequests {
 	public record Create(@NotBlank @Pattern(regexp = "^[A-Za-z][A-Za-z0-9]{1,9}$",
 			message = "2-10 letters or digits, starting with a letter") String key,
 			@NotBlank @Size(max = 100) String name, @Size(max = 2000) String description,
-			@Size(max = 1024) @Pattern(regexp = URL, message = "must be an http(s) URL") String avatarUrl,
 			LocalDate startDate, LocalDate endDate, @NotNull Methodology methodology,
 			@Size(max = 100) List<@Valid AddMember> members) {
 	}
 
 	/** The key cannot change: future issue keys are built from it. */
 	public record Update(@NotBlank @Size(max = 100) String name, @Size(max = 2000) String description,
-			@Size(max = 1024) @Pattern(regexp = URL, message = "must be an http(s) URL") String avatarUrl,
 			LocalDate startDate, LocalDate endDate, @NotNull Methodology methodology) {
 	}
 
@@ -41,7 +39,8 @@ public final class ProjectRequests {
 	public record AddMember(@NotNull UUID userId, @NotNull ProjectRole role) {
 	}
 
-	public record ChangeRole(@NotNull ProjectRole role) {
+	/** The member's complete set of roles (at least one). */
+	public record ChangeRoles(@NotNull @jakarta.validation.constraints.Size(min = 1, max = 6) java.util.Set<@NotNull ProjectRole> roles) {
 	}
 
 }

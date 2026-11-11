@@ -1,13 +1,18 @@
+import { METHODOLOGY_LABELS, PROJECT_ROLE_LABELS, PROJECT_STATUS_LABELS, ROLE_LABELS, TEAM_ROLE_LABELS } from './roles'
+
 /** What each audited action is called. The family (text before the dot) is also a filter in the log. */
 export const AUDIT_ACTIONS: Record<string, string> = {
   'auth.register': 'Đăng ký tài khoản',
   'auth.login': 'Đăng nhập',
   'auth.login_failed': 'Đăng nhập thất bại',
   'auth.password_changed': 'Đổi mật khẩu',
+  'account.delete': 'Xóa tài khoản',
   'workspace.create': 'Tạo workspace',
   'workspace.update': 'Sửa thông tin workspace',
   'workspace.member_role_change': 'Đổi vai trò thành viên workspace',
   'workspace.member_remove': 'Xóa thành viên khỏi workspace',
+  'workspace.ownership_transfer': 'Chuyển quyền sở hữu workspace',
+  'workspace.delete': 'Xóa workspace',
   'invitation.create': 'Tạo lời mời',
   'invitation.revoke': 'Thu hồi lời mời',
   'invitation.accept': 'Chấp nhận lời mời',
@@ -15,6 +20,7 @@ export const AUDIT_ACTIONS: Record<string, string> = {
   'team.update': 'Sửa team',
   'team.archive': 'Lưu trữ team',
   'team.unarchive': 'Mở lại team',
+  'team.delete': 'Xóa team',
   'team.member_add': 'Thêm thành viên vào team',
   'team.member_role_change': 'Đổi vai trò trong team',
   'team.member_remove': 'Xóa thành viên khỏi team',
@@ -50,6 +56,7 @@ export const AUDIT_ACTIONS: Record<string, string> = {
 export const AUDIT_FAMILIES: { value: string; label: string }[] = [
   { value: '', label: 'Mọi hành động' },
   { value: 'auth.', label: 'Tài khoản và đăng nhập' },
+  { value: 'account.', label: 'Xóa tài khoản' },
   { value: 'workspace.', label: 'Workspace' },
   { value: 'invitation.', label: 'Lời mời' },
   { value: 'team.', label: 'Team' },
@@ -60,5 +67,42 @@ export const AUDIT_FAMILIES: { value: string; label: string }[] = [
   { value: 'meeting.', label: 'Cuộc họp' },
   { value: 'export.', label: 'Xuất dữ liệu' },
 ]
+
+const DETAIL_KEYS: Record<string, string> = {
+  role: 'Vai trò',
+  roles: 'Vai trò',
+  status: 'Trạng thái',
+  kind: 'Loại',
+  email: 'Email',
+  name: 'Tên',
+  member: 'Thành viên',
+  methodology: 'Phương pháp',
+  format: 'Định dạng',
+  goalOutcome: 'Mục tiêu sprint',
+  unfinishedTo: 'Việc chưa xong chuyển tới',
+}
+
+const DETAIL_VALUES: Record<string, Record<string, string>> = {
+  role: { ...ROLE_LABELS, ...TEAM_ROLE_LABELS, ...PROJECT_ROLE_LABELS },
+  roles: { ...ROLE_LABELS, ...TEAM_ROLE_LABELS, ...PROJECT_ROLE_LABELS },
+  status: PROJECT_STATUS_LABELS,
+  kind: { EMAIL: 'Qua email', LINK: 'Liên kết mời' },
+  methodology: METHODOLOGY_LABELS,
+}
+
+/** The recorded `key=value; key=value` detail, in Vietnamese words instead of field names and codes. */
+export function auditDetail(detail: string): string {
+  return detail
+    .split('; ')
+    .map((part) => {
+      const at = part.indexOf('=')
+      if (at < 0) return part
+      const key = part.slice(0, at)
+      const value = part.slice(at + 1)
+      const words = value.split(',').map((v) => DETAIL_VALUES[key]?.[v] ?? v).join(', ')
+      return `${DETAIL_KEYS[key] ?? key}: ${words}`
+    })
+    .join(' · ')
+}
 
 export const auditActionLabel = (action: string) => AUDIT_ACTIONS[action] ?? action

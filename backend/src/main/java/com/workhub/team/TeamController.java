@@ -26,6 +26,11 @@ public class TeamController {
 
 	private final TeamService teamService;
 
+	@org.springframework.web.bind.annotation.GetMapping("/api/me/teams")
+	public java.util.List<TeamResponse> mine(@org.springframework.security.core.annotation.AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt) {
+		return teamService.listMine(com.workhub.security.CurrentUser.id(jwt));
+	}
+
 	public TeamController(TeamService teamService) {
 		this.teamService = teamService;
 	}
