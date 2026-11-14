@@ -35,11 +35,15 @@ public class AuthService {
 
 	private final AuthProperties properties;
 
+	private final com.workhub.integration.IdentityPeer peer;
+
 	/** Compared against when the email is unknown, so login takes the same time either way. */
 	private final String dummyPasswordHash;
 
 	public AuthService(UserRepository users, UserService userService, UserTokenService tokens,
-			PasswordEncoder passwordEncoder, JwtService jwtService, EmailSender emailSender, AuthProperties properties) {
+			PasswordEncoder passwordEncoder, JwtService jwtService, EmailSender emailSender, AuthProperties properties,
+			com.workhub.integration.IdentityPeer peer) {
+		this.peer = peer;
 		this.users = users;
 		this.userService = userService;
 		this.tokens = tokens;
@@ -60,15 +64,46 @@ public class AuthService {
 			throw ApiException.conflict("EMAIL_TAKEN", "Email is already registered");
 		}
 		checkPassword(request.password());
+		com.workhub.integration.IdentityPeer.Result other = peer.verify(email, request.password());
+		if (other.status() == com.workhub.integration.IdentityPeer.Status.WRONG_PASSWORD) {
+			throw ApiException.conflict("EMAIL_TAKEN", "Email is already registered in SmartSpec with another password");
+		}
 		User user = users.saveAndFlush(new User(email, passwordEncoder.encode(request.password()), request.fullName().strip()));
-		sendVerificationEmail(user);
+		if (other.ok() && other.emailVerified()) {
+			user.markEmailVerified();
+		}
+		else {
+			sendVerificationEmail(user);
+		}
 		return startSession(user);
 	}
 
 	public Session login(AuthRequests.Login request) {
-		User user = users.findByEmail(User.normalizeEmail(request.email())).orElse(null);
+		String email = User.normalizeEmail(request.email());
+		User user = users.findByEmail(email).orElse(null);
 		boolean matches = passwordEncoder.matches(request.password(),
 				(user != null) ? user.getPasswordHash() : dummyPasswordHash);
+		if ((user == null || !matches) && usable(request.password())) {
+			// The account may exist (or have a new password) in SmartSpec: adopt it so one login works in both.
+			com.workhub.integration.IdentityPeer.Result other = peer.verify(email, request.password());
+			// A missing account is created from the peer's; an existing one only takes the peer's password when it
+			// was changed there AFTER ours (otherwise the peer is simply stale and the password is wrong).
+			if (other.ok() && (user == null || isNewer(other.passwordChangedAt(), user.getPasswordChangedAt()))) {
+				String hash = passwordEncoder.encode(request.password());
+				if (user == null) {
+					String name = (other.fullName() == null || other.fullName().isBlank()) ? email.split("@")[0] : other.fullName();
+					user = users.saveAndFlush(new User(email, hash, name.strip()));
+					user.adoptPasswordHash(hash, other.passwordChangedAt());
+				}
+				else {
+					user.adoptPasswordHash(hash, other.passwordChangedAt());
+				}
+				if (other.emailVerified()) {
+					user.markEmailVerified();
+				}
+				matches = true;
+			}
+		}
 		if (user == null || !matches) {
 			throw ApiException.unauthorized("INVALID_CREDENTIALS", "Email or password is incorrect");
 		}
@@ -116,6 +151,7 @@ public class AuthService {
 		// Following the emailed link proves the user owns the address.
 		user.markEmailVerified();
 		tokens.revokeAll(user.getId(), TokenType.REFRESH);
+		peer.setPassword(user.getEmail(), request.newPassword());
 	}
 
 	/** Changes the password, signs out all other sessions and starts a fresh one for the caller. */
@@ -127,6 +163,7 @@ public class AuthService {
 		checkPassword(request.newPassword());
 		user.changePasswordHash(passwordEncoder.encode(request.newPassword()));
 		tokens.revokeAll(userId, TokenType.REFRESH);
+		peer.setPassword(user.getEmail(), request.newPassword());
 		return startSession(user);
 	}
 
@@ -153,6 +190,39 @@ public class AuthService {
 				"Xin chào " + user.getFullName() + ",\n\nNhấn vào liên kết sau để đặt lại mật khẩu:\n" + link
 						+ "\n\nLiên kết có hiệu lực trong " + properties.passwordResetTtl().toMinutes()
 						+ " phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.");
+	}
+
+	private static boolean isNewer(java.time.Instant peer, java.time.Instant local) {
+		return peer != null && (local == null || peer.isAfter(local));
+	}
+
+	/** A password the other system accepted can only be adopted when it also fits bcrypt. */
+	private static boolean usable(String password) {
+		return password != null && password.length() >= 8 && password.getBytes(StandardCharsets.UTF_8).length <= MAX_PASSWORD_BYTES;
+	}
+
+	/** Credential check for the other system (no sign-in, no side effects). */
+	public CredentialCheck checkCredentials(String rawEmail, String password) {
+		User user = users.findByEmail(User.normalizeEmail(rawEmail)).orElse(null);
+		if (user == null) {
+			return new CredentialCheck("not_found", null, false, null);
+		}
+		boolean ok = passwordEncoder.matches(password, user.getPasswordHash());
+		return ok ? new CredentialCheck("ok", user.getFullName(), user.isEmailVerified(), user.getPasswordChangedAt())
+				: new CredentialCheck("wrong_password", null, false, null);
+	}
+
+	/** The other system changed this person's password (reset or change there): take it and sign out everywhere. */
+	public void setPasswordFromPeer(String rawEmail, String password) {
+		User user = users.findByEmail(User.normalizeEmail(rawEmail)).orElse(null);
+		if (user == null || !usable(password)) {
+			return;
+		}
+		user.changePasswordHash(passwordEncoder.encode(password));
+		tokens.revokeAll(user.getId(), TokenType.REFRESH);
+	}
+
+	public record CredentialCheck(String status, String fullName, boolean emailVerified, java.time.Instant passwordChangedAt) {
 	}
 
 	private static void checkPassword(String password) {

@@ -7,11 +7,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * with HMAC-SHA256 using {@code webhookSecret} (header {@code X-WorkHub-Signature: sha256=<hex>}).
  */
 @ConfigurationProperties("workhub.integration")
-public record IntegrationProperties(String webhookUrl, String webhookSecret) {
+public record IntegrationProperties(String webhookUrl, String webhookSecret, String identityUrl) {
 
 	public IntegrationProperties {
 		webhookUrl = (webhookUrl == null) ? "" : webhookUrl.strip();
 		webhookSecret = (webhookSecret == null) ? "" : webhookSecret;
+		identityUrl = (identityUrl == null) ? "" : identityUrl.strip();
 	}
 
 	boolean webhookEnabled() {

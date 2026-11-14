@@ -34,7 +34,10 @@ public class IntegrationController {
 
 	private final IntegrationTokenService tokens;
 
-	public IntegrationController(AuthService auth, IntegrationTokenService tokens) {
+	private final IntegrationGate gate;
+
+	public IntegrationController(AuthService auth, IntegrationTokenService tokens, IntegrationGate gate) {
+		this.gate = gate;
 		this.auth = auth;
 		this.tokens = tokens;
 	}
@@ -64,6 +67,28 @@ public class IntegrationController {
 		UserProfile user = session.response().user();
 		IntegrationTokenService.Created created = tokens.create(user.id(), request.tokenName());
 		return new Connected(created.token(), created.id(), user, registering);
+	}
+
+	public record Identity(@NotBlank String email, @NotNull String password) {
+	}
+
+	/** The other system asks whether an e-mail/password pair is valid here. Only for requests carrying the integration key. */
+	@PostMapping("/api/integrations/identity/verify")
+	public AuthService.CredentialCheck verifyIdentity(@Valid @RequestBody Identity request) {
+		if (!gate.trusted()) {
+			throw com.workhub.common.ApiException.forbidden("FORBIDDEN", "Integration key required");
+		}
+		return auth.checkCredentials(request.email(), request.password());
+	}
+
+	/** The other system changed this person's password; only for requests carrying the integration key. */
+	@PostMapping("/api/integrations/identity/set-password")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void setPassword(@Valid @RequestBody Identity request) {
+		if (!gate.trusted()) {
+			throw com.workhub.common.ApiException.forbidden("FORBIDDEN", "Integration key required");
+		}
+		auth.setPasswordFromPeer(request.email(), request.password());
 	}
 
 	@PostMapping("/api/integrations/token")

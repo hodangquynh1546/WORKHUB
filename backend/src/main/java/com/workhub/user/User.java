@@ -37,6 +37,9 @@ public class User {
 	@Column(name = "email_verified", nullable = false)
 	private boolean emailVerified;
 
+	@Column(name = "password_changed_at")
+	private Instant passwordChangedAt;
+
 	@CreationTimestamp
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
@@ -52,6 +55,7 @@ public class User {
 		this.email = normalizeEmail(email);
 		this.passwordHash = passwordHash;
 		this.fullName = fullName;
+		this.passwordChangedAt = Instant.now();
 	}
 
 	/** Emails are compared case-insensitively, so they are stored lower-cased. */
@@ -69,6 +73,17 @@ public class User {
 
 	public void changePasswordHash(String passwordHash) {
 		this.passwordHash = passwordHash;
+		this.passwordChangedAt = Instant.now();
+	}
+
+	/** Adopts a password changed in the other system, keeping the moment it was changed there. */
+	public void adoptPasswordHash(String passwordHash, Instant changedAt) {
+		this.passwordHash = passwordHash;
+		this.passwordChangedAt = (changedAt != null) ? changedAt : Instant.now();
+	}
+
+	public Instant getPasswordChangedAt() {
+		return passwordChangedAt;
 	}
 
 	public void markEmailVerified() {
