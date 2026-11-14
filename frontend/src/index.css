@@ -3150,3 +3150,19 @@ a.meeting-card:hover {
 @media (max-width: 800px) { .prefs { position: static; max-height: 70vh; } }
 
 .list-subtitle { margin-top: 1.5rem; }
+
+/* Mermaid diagrams inside documents */
+.markdown .mermaid {
+  overflow-x: auto;
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-field);
+  background: var(--surface);
+  text-align: center;
+}
+
+.markdown .mermaid svg {
+  max-width: 100%;
+  height: auto;
+}

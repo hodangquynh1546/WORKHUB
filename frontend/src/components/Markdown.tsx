@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { MermaidDiagram } from './MermaidDiagram'
 
 /**
  * A small, safe Markdown renderer: headings, paragraphs, lists, quotes, code, tables, rules, **bold**, *italic*,
@@ -9,7 +10,7 @@ type Block =
   | { t: 'p'; text: string }
   | { t: 'list'; ordered: boolean; items: string[] }
   | { t: 'quote'; text: string }
-  | { t: 'code'; text: string }
+  | { t: 'code'; lang: string; text: string }
   | { t: 'hr' }
   | { t: 'table'; head: string[]; rows: string[][] }
 
@@ -17,8 +18,8 @@ const cells = (line: string) =>
   line
     .trim()
     .replace(/^\||\|$/g, '')
-    .split('|')
-    .map((c) => c.trim())
+    .split(/(?<!\\)\|/)
+    .map((c) => c.replace(/\\\|/g, '|').trim())
 
 function parse(source: string): Block[] {
   const lines = source.replace(/\r\n?/g, '\n').split('\n')
@@ -29,11 +30,12 @@ function parse(source: string): Block[] {
     if (!line.trim()) {
       i++
     } else if (line.startsWith('```')) {
+      const lang = line.slice(3).trim().toLowerCase()
       const body: string[] = []
       i++
       while (i < lines.length && !lines[i].startsWith('```')) body.push(lines[i++])
       i++
-      blocks.push({ t: 'code', text: body.join('\n') })
+      blocks.push({ t: 'code', lang, text: body.join('\n') })
     } else if (/^#{1,4}\s/.test(line)) {
       const level = line.match(/^#+/)![0].length
       blocks.push({ t: 'h', level, text: line.replace(/^#+\s+/, '').trim() })
@@ -111,6 +113,7 @@ export function Markdown({ source }: { source: string }) {
           case 'quote':
             return <blockquote key={i}>{inline(b.text)}</blockquote>
           case 'code':
+            if (b.lang === 'mermaid') return <MermaidDiagram key={`${i}:${b.text}`} source={b.text} />
             return (
               <pre key={i}>
                 <code>{b.text}</code>
