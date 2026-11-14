@@ -61,10 +61,13 @@ public class DocumentService {
 
 	private final Clock clock;
 
+	private final com.workhub.integration.IntegrationGate gate;
+
 	DocumentService(AccessService access, DocumentLoader loader, DocumentRepository documents,
 			DocumentFolderRepository folders, DocumentVersionRepository versions, DocumentLinkRepository links,
 			DocumentMapper mapper, IssueRepository issues, SprintRepository sprints, MeetingRepository meetings,
-			CollabService collab, Clock clock) {
+			CollabService collab, Clock clock, com.workhub.integration.IntegrationGate gate) {
+		this.gate = gate;
 		this.collab = collab;
 		this.access = access;
 		this.loader = loader;
@@ -104,8 +107,9 @@ public class DocumentService {
 			.requireActive();
 		UUID folderId = checkFolder(projectId, request.folderId());
 		String content = (request.content() == null) ? "" : request.content();
-		Document document = documents.saveAndFlush(
-				new Document(projectId, folderId, request.title().strip(), request.type(), content, userId));
+		Document document = new Document(projectId, folderId, request.title().strip(), request.type(), content, userId);
+		applyExternalRef(document, request.externalRef());
+		document = documents.saveAndFlush(document);
 		versions.save(new DocumentVersion(document, null, userId));
 		return mapper.detail(document, caller);
 	}
@@ -118,6 +122,7 @@ public class DocumentService {
 		}
 		String title = request.title().strip();
 		boolean textChanged = !title.equals(document.getTitle()) || !request.content().equals(document.getContent());
+		applyExternalRef(document, request.externalRef());
 		document.updateMetadata(request.type(), checkFolder(document.getProjectId(), request.folderId()), userId);
 		if (textChanged) {
 			document.revise(title, request.content(), userId);
@@ -134,6 +139,7 @@ public class DocumentService {
 	public DocumentDetail setArchived(UUID userId, UUID documentId, boolean archived) {
 		Loaded loaded = loader.load(userId, documentId);
 		loaded.access().require(ProjectPermission.EDIT_DOCUMENTS).requireActive();
+		requireNotManaged(loaded.document());
 		loaded.document().setStatus(archived ? DocumentStatus.ARCHIVED : DocumentStatus.ACTIVE, userId);
 		flush(loaded.document());
 		return mapper.detail(loaded.document(), loaded.access());
@@ -143,6 +149,7 @@ public class DocumentService {
 	public void delete(UUID userId, UUID documentId) {
 		Loaded loaded = loader.load(userId, documentId);
 		ProjectAccess caller = loaded.access().require(ProjectPermission.EDIT_DOCUMENTS).requireActive();
+		requireNotManaged(loaded.document());
 		if (!loaded.document().getCreatedBy().equals(userId)) {
 			caller.require(ProjectPermission.UPDATE_PROJECT);
 		}
@@ -216,10 +223,29 @@ public class DocumentService {
 	private Loaded writable(UUID userId, UUID documentId) {
 		Loaded loaded = loader.load(userId, documentId);
 		loaded.access().require(ProjectPermission.EDIT_DOCUMENTS).requireActive();
+		requireNotManaged(loaded.document());
 		if (loaded.document().getStatus() == DocumentStatus.ARCHIVED) {
 			throw ApiException.conflict("DOCUMENT_ARCHIVED", "Document is archived");
 		}
 		return loaded;
+	}
+
+	/** Content owned by SmartSpec changes only through the integration, never by hand. */
+	private void requireNotManaged(Document document) {
+		if (document.isManaged() && !gate.mayChangeManaged()) {
+			throw ApiException.forbidden("DOCUMENT_MANAGED", "This document is managed by SmartSpec; edit it there");
+		}
+	}
+
+	/** Only the integration may tag a document as owned by another system. */
+	private void applyExternalRef(Document document, String externalRef) {
+		if (externalRef == null || externalRef.isBlank()) {
+			return;
+		}
+		if (!gate.mayChangeManaged()) {
+			throw ApiException.forbidden("DOCUMENT_MANAGED", "Only the integration can mark a document as managed");
+		}
+		document.setExternalRef(externalRef.strip());
 	}
 
 	private UUID checkFolder(UUID projectId, UUID folderId) {

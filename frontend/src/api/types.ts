@@ -417,6 +417,8 @@ export type DocumentSummary = {
   updatedBy: UserRef | null
   updatedAt: string
   attachmentCount: number
+  /** Owned by SmartSpec: read-only here. */
+  managed: boolean
 }
 
 export type DocumentAttachment = {
@@ -449,6 +451,8 @@ export type DocumentDetail = {
   links: DocumentLink[]
   canEdit: boolean
   canDelete: boolean
+  externalRef: string | null
+  managed: boolean
 }
 
 export type DocumentVersionSummary = {

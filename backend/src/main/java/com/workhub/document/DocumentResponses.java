@@ -15,7 +15,7 @@ public final class DocumentResponses {
 	}
 
 	public record DocumentSummary(UUID id, String title, DocumentType type, UUID folderId, DocumentStatus status,
-			int version, String excerpt, UserRef updatedBy, Instant updatedAt, int attachmentCount) {
+			int version, String excerpt, UserRef updatedBy, Instant updatedAt, int attachmentCount, boolean managed) {
 	}
 
 	public record AttachmentResponse(UUID id, String fileName, String contentType, long sizeBytes, UserRef uploadedBy,
@@ -29,7 +29,7 @@ public final class DocumentResponses {
 	public record DocumentDetail(UUID id, UUID projectId, String title, DocumentType type, UUID folderId,
 			DocumentStatus status, int version, String content, UserRef createdBy, UserRef updatedBy,
 			Instant createdAt, Instant updatedAt, List<AttachmentResponse> attachments, List<LinkResponse> links,
-			boolean canEdit, boolean canDelete) {
+			boolean canEdit, boolean canDelete, String externalRef, boolean managed) {
 	}
 
 	public record VersionSummary(int version, String title, String note, UserRef author, Instant createdAt,

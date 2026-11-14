@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'rea
 import { Link, useNavigate, useParams } from 'react-router'
 import { api, downloadFile } from '../../api/client'
 import { errorMessage } from '../../api/errors'
+import { smartspecProjectOf, smartspecProjectUrl } from '../../api/smartspec'
 import type {
   DocumentAttachment,
   DocumentDetail,
@@ -92,9 +93,20 @@ export function DocumentPage() {
           <div className="doc-card-title">
             <span className="badge">{DOCUMENT_TYPE_LABELS[doc.type]}</span>
             <span className="badge badge-muted">Phiên bản {doc.version}</span>
+            {doc.managed && <span className="badge badge-muted">Do SmartSpec quản lý</span>}
             {archived && <span className="badge badge-muted">Đã lưu trữ</span>}
           </div>
           <h1>{doc.title}</h1>
+          {doc.managed && (
+            <p className="muted small">
+              Nội dung này được SmartSpec tạo và cập nhật tự động nên chỉ đọc ở đây (vẫn xem được lịch sử phiên bản và đính kèm tệp, ví dụ wireframe).{' '}
+              {smartspecProjectOf(doc.externalRef) && (
+                <a href={smartspecProjectUrl(smartspecProjectOf(doc.externalRef)!)} target="_blank" rel="noreferrer">
+                  Mở dự án trong SmartSpec ↗
+                </a>
+              )}
+            </p>
+          )}
         </div>
         {!editing && (
           <div className="actions no-print">
@@ -103,7 +115,7 @@ export function DocumentPage() {
               Tải .md
             </button>
             {doc.canEdit && <button type="button" onClick={() => (setViewing(null), setEditing(true))}>Chỉnh sửa</button>}
-            {project.permissions.includes('EDIT_DOCUMENTS') && project.status !== 'ARCHIVED' && (
+            {!doc.managed && project.permissions.includes('EDIT_DOCUMENTS') && project.status !== 'ARCHIVED' && (
               <button
                 type="button"
                 className="button-secondary"

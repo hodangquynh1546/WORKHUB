@@ -43,7 +43,7 @@ public class IntegrationController {
 			Boolean register, @Size(max = 150) String fullName, @Size(max = 100) String tokenName) {
 	}
 
-	public record Connected(String token, UserProfile user, boolean registered) {
+	public record Connected(String token, UUID tokenId, UserProfile user, boolean registered) {
 	}
 
 	public record Exchange(@NotBlank String token) {
@@ -63,7 +63,7 @@ public class IntegrationController {
 				: auth.login(new AuthRequests.Login(request.email(), request.password()));
 		UserProfile user = session.response().user();
 		IntegrationTokenService.Created created = tokens.create(user.id(), request.tokenName());
-		return new Connected(created.token(), user, registering);
+		return new Connected(created.token(), created.id(), user, registering);
 	}
 
 	@PostMapping("/api/integrations/token")

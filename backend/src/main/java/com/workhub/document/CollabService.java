@@ -78,9 +78,12 @@ public class CollabService {
 
 	private final Clock clock;
 
+	private final com.workhub.integration.IntegrationGate gate;
+
 	CollabService(DocumentLoader loader, DocumentRepository documents, DocumentVersionRepository versions, DocumentCollabRepository collabs,
 			DocumentUpdateRepository updates, DocumentFolderRepository folders, DocumentMapper mapper,
-			ApplicationEventPublisher events, Clock clock) {
+			ApplicationEventPublisher events, Clock clock, com.workhub.integration.IntegrationGate gate) {
+		this.gate = gate;
 		this.folders = folders;
 		this.mapper = mapper;
 		this.loader = loader;
@@ -206,15 +209,19 @@ public class CollabService {
 	private Loaded writable(UUID userId, UUID documentId) {
 		Loaded loaded = loader.load(userId, documentId);
 		loaded.access().require(ProjectPermission.EDIT_DOCUMENTS).requireActive();
+		if (loaded.document().isManaged() && !gate.mayChangeManaged()) {
+			throw ApiException.forbidden("DOCUMENT_MANAGED", "This document is managed by SmartSpec; edit it there");
+		}
 		if (loaded.document().getStatus() == DocumentStatus.ARCHIVED) {
 			throw ApiException.conflict("DOCUMENT_ARCHIVED", "Document is archived");
 		}
 		return loaded;
 	}
 
-	private static boolean canEdit(Loaded loaded) {
+	private boolean canEdit(Loaded loaded) {
 		return loaded.access().permissions().contains(ProjectPermission.EDIT_DOCUMENTS) && !loaded.access().project().isArchived()
-				&& loaded.document().getStatus() == DocumentStatus.ACTIVE;
+				&& loaded.document().getStatus() == DocumentStatus.ACTIVE
+				&& (!loaded.document().isManaged() || gate.mayChangeManaged());
 	}
 
 	private static byte[] decode(String base64) {

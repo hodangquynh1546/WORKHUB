@@ -147,6 +147,7 @@ export function DocumentsPage() {
                   <div className="doc-card-title">
                     <strong>{doc.title}</strong>
                     <span className="badge">{DOCUMENT_TYPE_LABELS[doc.type]}</span>
+                    {doc.managed && <span className="badge badge-muted">SmartSpec</span>}
                     {doc.status === 'ARCHIVED' && <span className="badge badge-muted">Đã lưu trữ</span>}
                   </div>
                   {doc.excerpt && <p className="muted doc-excerpt">{doc.excerpt}</p>}

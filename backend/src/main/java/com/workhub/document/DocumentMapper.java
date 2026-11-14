@@ -48,9 +48,12 @@ class DocumentMapper {
 
 	private final MeetingRepository meetings;
 
+	private final com.workhub.integration.IntegrationGate gate;
+
 	DocumentMapper(UserRepository users, DocumentAttachmentRepository attachments, DocumentLinkRepository links,
 			IssueRepository issues, SprintRepository sprints,
-			MeetingRepository meetings) {
+			MeetingRepository meetings, com.workhub.integration.IntegrationGate gate) {
+		this.gate = gate;
 		this.users = users;
 		this.attachments = attachments;
 		this.links = links;
@@ -70,7 +73,7 @@ class DocumentMapper {
 		return documents.stream()
 			.map((d) -> new DocumentSummary(d.getId(), d.getTitle(), d.getType(), d.getFolderId(), d.getStatus(),
 					d.getVersionNumber(), excerpt(d.getContent()), people.get(d.getUpdatedBy()), d.getUpdatedAt(),
-					counts.getOrDefault(d.getId(), 0)))
+					counts.getOrDefault(d.getId(), 0), d.isManaged()))
 			.toList();
 	}
 
@@ -81,9 +84,10 @@ class DocumentMapper {
 		Map<UUID, UserRef> people = userRefs(authors);
 		Set<ProjectPermission> permissions = access.permissions();
 		boolean canEdit = permissions.contains(ProjectPermission.EDIT_DOCUMENTS) && !access.project().isArchived()
-				&& d.getStatus() == DocumentStatus.ACTIVE;
+				&& d.getStatus() == DocumentStatus.ACTIVE && (!d.isManaged() || gate.mayChangeManaged());
 		boolean canDelete = permissions.contains(ProjectPermission.EDIT_DOCUMENTS) && !access.project().isArchived()
-				&& (d.getCreatedBy().equals(access.userId()) || permissions.contains(ProjectPermission.UPDATE_PROJECT));
+				&& (d.getCreatedBy().equals(access.userId()) || permissions.contains(ProjectPermission.UPDATE_PROJECT))
+				&& (!d.isManaged() || gate.mayChangeManaged());
 		return new DocumentDetail(d.getId(), d.getProjectId(), d.getTitle(), d.getType(), d.getFolderId(), d.getStatus(),
 				d.getVersionNumber(), d.getContent(), people.get(d.getCreatedBy()), people.get(d.getUpdatedBy()),
 				d.getCreatedAt(), d.getUpdatedAt(),
@@ -91,7 +95,7 @@ class DocumentMapper {
 					.map((r) -> new AttachmentResponse(r.id(), r.fileName(), r.contentType(), r.sizeBytes(),
 							people.get(r.uploadedBy()), r.createdAt()))
 					.toList(),
-				linkResponses(d.getId(), access.project().getProjectKey()), canEdit, canDelete);
+				linkResponses(d.getId(), access.project().getProjectKey()), canEdit, canDelete, d.getExternalRef(), d.isManaged());
 	}
 
 	Map<UUID, UserRef> userRefs(Collection<UUID> ids) {

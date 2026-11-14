@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { api } from '../api/client'
 import { errorMessage } from '../api/errors'
+import { smartspecProjectOf, smartspecProjectUrl } from '../api/smartspec'
 import type {
   ChecklistItem,
   Issue,
@@ -45,16 +46,14 @@ function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('vi-VN')
 }
 
-const SMARTSPEC_URL = ((import.meta.env.VITE_SMARTSPEC_URL as string | undefined) ?? 'http://localhost:5174').replace(/\/$/, '')
-
 /** Issues created from a SmartSpec use case: the text is owned by SmartSpec, so say so and link back to it. */
 function SpecSource({ externalRef }: { externalRef: string | null }) {
-  const match = externalRef?.match(/^smartspec:(usecase|module)\/([^/]+)\//)
-  if (!match) return null
+  const projectId = smartspecProjectOf(externalRef)
+  if (!projectId) return null
   return (
     <p className="muted small">
       Tạo từ đặc tả SmartSpec · tiêu đề, mô tả và tiêu chí chấp nhận được SmartSpec cập nhật tự động.{' '}
-      <a href={`${SMARTSPEC_URL}/project/${match[2]}/editor`} target="_blank" rel="noreferrer">
+      <a href={smartspecProjectUrl(projectId)} target="_blank" rel="noreferrer">
         Mở đặc tả ↗
       </a>
     </p>

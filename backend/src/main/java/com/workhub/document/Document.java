@@ -74,6 +74,9 @@ public class Document {
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;
 
+	@Column(name = "external_ref", length = 200)
+	private String externalRef;
+
 	@Column(name = "deleted_at")
 	private Instant deletedAt;
 
@@ -111,6 +114,19 @@ public class Document {
 	void rename(String title, UUID author) {
 		this.title = title;
 		this.updatedBy = author;
+	}
+
+	public String getExternalRef() {
+		return externalRef;
+	}
+
+	void setExternalRef(String externalRef) {
+		this.externalRef = externalRef;
+	}
+
+	/** Owned by another system (SmartSpec): people may read and attach files, but not change it. */
+	public boolean isManaged() {
+		return externalRef != null && externalRef.startsWith("smartspec:");
 	}
 
 	void updateMetadata(DocumentType type, UUID folderId, UUID author) {

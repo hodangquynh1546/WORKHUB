@@ -17,6 +17,7 @@ const MESSAGES: Record<string, string> = {
   AVATAR_INVALID_TYPE: 'Chỉ hỗ trợ ảnh JPEG, PNG hoặc WebP.',
   DOCUMENT_NOT_FOUND: 'Không tìm thấy tài liệu hoặc bạn không có quyền xem.',
   DOCUMENT_CONFLICT: 'Tài liệu vừa được người khác thay đổi.',
+  DOCUMENT_MANAGED: 'Tài liệu này do SmartSpec quản lý và cập nhật tự động. Hãy chỉnh sửa ở SmartSpec.',
   DOCUMENT_ARCHIVED: 'Tài liệu đã được lưu trữ nên không thể sửa. Hãy khôi phục khỏi lưu trữ trước.',
   VERSION_NOT_FOUND: 'Không tìm thấy phiên bản này.',
   FOLDER_NOT_FOUND: 'Không tìm thấy thư mục.',
