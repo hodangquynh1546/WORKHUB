@@ -65,7 +65,7 @@ public class IssueMapper {
 					full ? issue.getAcceptanceCriteria() : null, issue.getLabels().stream().sorted().toList(),
 					issue.getBacklogRank(), issue.getStartedAt(), issue.getDoneAt(), issue.getCreatedAt(),
 					issue.getUpdatedAt(), count[0], count[1], issue.isBlocked(), issue.getBlockedReason(),
-					sprintRef(sprintsById.get(issue.getSprintId()))));
+					sprintRef(sprintsById.get(issue.getSprintId())), issue.getExternalRef()));
 		}
 		return out;
 	}

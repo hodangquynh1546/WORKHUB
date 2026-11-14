@@ -108,6 +108,9 @@ public class Issue {
 	@Column(name = "done_at")
 	private Instant doneAt;
 
+	@Column(name = "external_ref", length = 200)
+	private String externalRef;
+
 	@Column(name = "deleted_at")
 	private Instant deletedAt;
 
@@ -185,6 +188,14 @@ public class Issue {
 
 	void setRemainingEstimateMinutes(Integer minutes) {
 		this.remainingEstimateMinutes = minutes;
+	}
+
+	void setExternalRef(String externalRef) {
+		this.externalRef = externalRef;
+	}
+
+	public String getExternalRef() {
+		return externalRef;
 	}
 
 	void setAcceptanceCriteria(String acceptanceCriteria) {

@@ -46,9 +46,12 @@ class ProjectChangeInterceptor implements HandlerInterceptor {
 
 	private final ProjectLookup lookup;
 
-	ProjectChangeInterceptor(RealtimeHub hub, ProjectLookup lookup) {
+	private final com.workhub.integration.IntegrationOutbox outbox;
+
+	ProjectChangeInterceptor(RealtimeHub hub, ProjectLookup lookup, com.workhub.integration.IntegrationOutbox outbox) {
 		this.hub = hub;
 		this.lookup = lookup;
+		this.outbox = outbox;
 	}
 
 	@Override
@@ -79,6 +82,7 @@ class ProjectChangeInterceptor implements HandlerInterceptor {
 				area = AREA.get(byRecord.group(1));
 			}
 			hub.sendToProject(projectId, Map.of("type", "project.changed", "projectId", projectId, "area", area, "actorId", actor()));
+			outbox.projectChanged(projectId); // durable notification for integrations (no-op unless the project is linked)
 		}
 		catch (RuntimeException failure) {
 			// Realtime is a convenience; a failure here must never turn a successful write into an error.

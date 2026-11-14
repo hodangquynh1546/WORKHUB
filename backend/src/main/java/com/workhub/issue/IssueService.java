@@ -142,6 +142,7 @@ public class IssueService {
 				? request.remainingEstimateMinutes() : request.originalEstimateMinutes());
 		issue.setAcceptanceCriteria(Strings.trimToNull(request.acceptanceCriteria()));
 		issue.replaceLabels(normalizeLabels(request.labels()));
+		issue.setExternalRef(Strings.trimToNull(request.externalRef()));
 		issue = issues.saveAndFlush(issue);
 		activity.save(new IssueActivity(issue.getId(), userId, IssueActivity.Kind.CREATED, null, null, null));
 		return mapper.toResponse(project, issue, true);

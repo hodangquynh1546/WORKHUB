@@ -26,7 +26,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 class RateLimitFilter extends OncePerRequestFilter {
 
 	private static final Set<String> LIMITED = Set.of("/api/auth/login", "/api/auth/register",
-			"/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/verify-email");
+			"/api/auth/forgot-password", "/api/auth/reset-password", "/api/auth/verify-email",
+			"/api/integrations/connect", "/api/integrations/token");
 
 	private final RateLimitProperties properties;
 

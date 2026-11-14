@@ -45,6 +45,22 @@ function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('vi-VN')
 }
 
+const SMARTSPEC_URL = ((import.meta.env.VITE_SMARTSPEC_URL as string | undefined) ?? 'http://localhost:5174').replace(/\/$/, '')
+
+/** Issues created from a SmartSpec use case: the text is owned by SmartSpec, so say so and link back to it. */
+function SpecSource({ externalRef }: { externalRef: string | null }) {
+  const match = externalRef?.match(/^smartspec:(usecase|module)\/([^/]+)\//)
+  if (!match) return null
+  return (
+    <p className="muted small">
+      Tạo từ đặc tả SmartSpec · tiêu đề, mô tả và tiêu chí chấp nhận được SmartSpec cập nhật tự động.{' '}
+      <a href={`${SMARTSPEC_URL}/project/${match[2]}/editor`} target="_blank" rel="noreferrer">
+        Mở đặc tả ↗
+      </a>
+    </p>
+  )
+}
+
 export function IssuePage() {
   const { issueId } = useParams()
   const { data: detail, error, reload } = useResource<IssueDetail>(`/api/issues/${issueId}`)
@@ -119,6 +135,7 @@ function IssueView({ detail, project, reload }: { detail: IssueDetail; project: 
             )}
           </p>
           <h1>{issue.title}</h1>
+          <SpecSource externalRef={issue.externalRef} />
         </div>
         <div className="actions">
           {canEdit && (

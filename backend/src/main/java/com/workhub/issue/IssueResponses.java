@@ -34,7 +34,7 @@ public final class IssueResponses {
 			LocalDate dueDate, Integer storyPoints, Integer originalEstimateMinutes,
 			Integer remainingEstimateMinutes, String acceptanceCriteria, List<String> labels, long rank,
 			Instant startedAt, Instant doneAt, Instant createdAt, Instant updatedAt, int childCount,
-			int childDoneCount, boolean blocked, String blockedReason, SprintRef sprint) {
+			int childDoneCount, boolean blocked, String blockedReason, SprintRef sprint, String externalRef) {
 	}
 
 	public record ChecklistItemResponse(UUID id, String text, boolean done) {

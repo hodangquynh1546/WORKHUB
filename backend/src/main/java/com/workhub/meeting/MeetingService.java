@@ -195,7 +195,7 @@ public class MeetingService {
 		}
 		IssueResponse issue = issueService.create(userId, loaded.meeting().getProjectId(),
 				new IssueRequests.Create(IssueType.TASK, item.getText(), "Từ cuộc họp: " + loaded.meeting().getTitle(), null,
-						null, item.getAssigneeId(), null, item.getDueDate(), null, null, null, null, null));
+						null, item.getAssigneeId(), null, item.getDueDate(), null, null, null, null, null, null));
 		// Creating an issue bumps the project's counter with a bulk update that clears the persistence context, so
 		// the item loaded above is detached by now: load it again before recording the link.
 		actionItems.findById(itemId).orElseThrow(() -> ApiException.notFound("ACTION_ITEM_NOT_FOUND", "Action item not found"))

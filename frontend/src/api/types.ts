@@ -185,6 +185,8 @@ export type Issue = {
   blockedReason: string | null
   /** The sprint the issue is in (open sprint, or the completed one it was finished in). */
   sprint: { id: string; name: string; status: SprintStatus } | null
+  /** Where the issue came from in another system, e.g. smartspec:usecase/<project>/<use case>. */
+  externalRef: string | null
 }
 
 export type ChecklistItem = { id: string; text: string; done: boolean }

@@ -23,7 +23,8 @@ public final class IssueRequests {
 			@Size(max = 10000) String description, IssuePriority priority, UUID parentId, UUID assigneeId,
 			LocalDate startDate, LocalDate dueDate, @Min(0) @Max(100) Integer storyPoints,
 			@Min(0) @Max(600000) Integer originalEstimateMinutes, @Min(0) @Max(600000) Integer remainingEstimateMinutes,
-			@Size(max = 10000) String acceptanceCriteria, @Size(max = 10) List<@NotBlank @Size(max = 30) String> labels) {
+			@Size(max = 10000) String acceptanceCriteria, @Size(max = 10) List<@NotBlank @Size(max = 30) String> labels,
+			@Size(max = 200) String externalRef) {
 	}
 
 	/**
