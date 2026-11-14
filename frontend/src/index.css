@@ -3169,3 +3169,17 @@ a.meeting-card:hover {
   max-width: 100%;
   height: auto;
 }
+/* Menu của select do ta vẽ (xem utils/selectMenu.js) */
+.app-select-menu { position: fixed; z-index: 5000; margin: 0; padding: 4px; list-style: none; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px rgb(0 0 0 / 0.16); }
+.app-select-menu li { display: flex; align-items: center; gap: 6px; padding: 6px 12px 6px 6px; font-size: 12.5px; line-height: 1.3; border-radius: 8px; cursor: pointer; color: var(--text); white-space: nowrap; }
+.app-select-menu li .mark { width: 16px; text-align: center; font-size: 12px; }
+.app-select-menu li:hover, .app-select-menu li.hot { background: var(--sunken); }
+.app-select-menu li.on { font-weight: 600; }
+.app-select-menu li.off { opacity: 0.4; cursor: default; }
+
+/* Chỉnh nhanh ngay trên dòng danh sách (độ ưu tiên, trạng thái, người phụ trách) */
+.inline-controls { display: inline-flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+.inline-controls select { font-size: 0.8rem; padding: 4px 8px; height: 30px; max-width: 150px; }
+.subtask-row { display: flex; align-items: center; gap: 8px; }
+.subtask-row .inline-controls { margin-left: auto; }
+.subtask-row > a { flex: 1; min-width: 0; text-align: left; }

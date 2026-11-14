@@ -7,6 +7,7 @@ import { useResource } from '../../api/useResource'
 import { useWorkflow } from '../../api/useWorkflow'
 import { Alert } from '../../components/Form'
 import { Assignee, PriorityBadge, TypeBadge } from '../../components/IssueBits'
+import { InlineControls } from '../../components/InlineControls'
 import {
   ISSUE_PRIORITIES,
   ISSUE_TYPES,
@@ -37,7 +38,7 @@ type Filters = {
   unplanned: boolean
 }
 
-const NO_FILTERS: Filters = { q: '', type: '', status: '', priority: '', assignee: '', epicId: '', label: '', refinement: '', showSubtasks: false, unplanned: false }
+const NO_FILTERS: Filters = { q: '', type: '', status: '', priority: '', assignee: '', epicId: '', label: '', refinement: '', showSubtasks: true, unplanned: false }
 
 function buildQuery(f: Filters): string {
   const p = new URLSearchParams({ size: String(PAGE_SIZE) })
@@ -109,25 +110,6 @@ export function BacklogPage() {
   const reload = () => setVersion((v) => v + 1)
   useLiveReload(project.id, ['issues', 'sprints'], reload)
   const set = <K extends keyof Filters>(key: K, value: Filters[K]) => setFilters((f) => ({ ...f, [key]: value }))
-
-  function replace(updated: Issue) {
-    setItems((list) => list?.map((i) => (i.id === updated.id ? { ...updated, childCount: i.childCount, childDoneCount: i.childDoneCount } : i)) ?? null)
-  }
-
-  async function mutate(call: () => Promise<Issue>) {
-    setActionError(null)
-    try {
-      replace(await call())
-    } catch (err) {
-      setActionError(errorMessage(err))
-      reload()
-    }
-  }
-
-  const changeStatus = (issue: Issue, status: IssueStatus) =>
-    mutate(() => api<Issue>(`/api/issues/${issue.id}/status`, { method: 'PUT', body: { status } }))
-  const assign = (issue: Issue, assigneeId: string) =>
-    mutate(() => api<Issue>(`/api/issues/${issue.id}/assignee`, { method: 'PUT', body: { assigneeId: assigneeId || null } }))
 
   /** Drops `moved` right before `target` (null = at the end). */
   async function move(movedId: string, targetId: string | null) {
@@ -264,8 +246,8 @@ export function BacklogPage() {
                 workflow={workflow}
                 canEdit={canEdit}
                 canDrag={canDrag}
-                onStatus={changeStatus}
-                onAssign={assign}
+                onChanged={reload}
+                onError={setActionError}
                 onMove={move}
                 refreshKey={version}
               />
@@ -284,8 +266,8 @@ function IssueRow({
   workflow,
   canEdit,
   canDrag,
-  onStatus,
-  onAssign,
+  onChanged,
+  onError,
   onMove,
   refreshKey,
 }: {
@@ -294,8 +276,8 @@ function IssueRow({
   workflow: ReturnType<typeof useWorkflow>
   canEdit: boolean
   canDrag: boolean
-  onStatus: (issue: Issue, status: IssueStatus) => void
-  onAssign: (issue: Issue, assigneeId: string) => void
+  onChanged: () => void
+  onError: (message: string) => void
   onMove: (movedId: string, targetId: string | null) => void
   refreshKey: number
 }) {
@@ -371,32 +353,17 @@ function IssueRow({
           ))}
         </div>
       </div>
-      <PriorityBadge priority={issue.priority} />
       <span className="points" title="Story Points">
         {issue.storyPoints ?? '–'}
       </span>
       {canEdit ? (
-        <select value={issue.status} onChange={(e) => onStatus(issue, e.target.value as IssueStatus)} aria-label="Trạng thái" className={`status-select status-${issue.status.toLowerCase()}`}>
-          {workflow.enabled.map((s) => (
-            <option key={s} value={s}>
-              {workflow.names[s]}
-            </option>
-          ))}
-        </select>
+        <InlineControls issue={issue} members={members} workflow={workflow} onDone={onChanged} onError={onError} />
       ) : (
-        <span className={`badge status-${issue.status.toLowerCase()}`}>{workflow.names[issue.status]}</span>
-      )}
-      {canEdit ? (
-        <select value={issue.assignee?.id ?? ''} onChange={(e) => onAssign(issue, e.target.value)} aria-label="Người phụ trách" className="assignee-select">
-          <option value="">Chưa giao</option>
-          {members.map((m) => (
-            <option key={m.userId} value={m.userId}>
-              {m.fullName}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <Assignee user={issue.assignee} />
+        <>
+          <PriorityBadge priority={issue.priority} />
+          <span className={`badge status-${issue.status.toLowerCase()}`}>{workflow.names[issue.status]}</span>
+          <Assignee user={issue.assignee} />
+        </>
       )}
     </li>
     {expanded && (
@@ -406,7 +373,7 @@ function IssueRow({
         ) : (
           <ul className="plain-list subtask-list">
             {subtasks.map((c) => (
-              <ChildRow key={c.id} issue={c} workflow={workflow} refreshKey={refreshKey} />
+              <ChildRow key={c.id} issue={c} workflow={workflow} members={members} canEdit={canEdit} onChanged={onChanged} onError={onError} refreshKey={refreshKey} />
             ))}
           </ul>
         )}
@@ -417,7 +384,7 @@ function IssueRow({
 }
 
 /** A nested child; it can be opened again when it has children of its own (Epic > Feature > Story > Sub-task). */
-function ChildRow({ issue, workflow, refreshKey }: { issue: Issue; workflow: ReturnType<typeof useWorkflow>; refreshKey: number }) {
+function ChildRow({ issue, workflow, members, canEdit, onChanged, onError, refreshKey }: { issue: Issue; workflow: ReturnType<typeof useWorkflow>; members: ProjectMember[]; canEdit: boolean; onChanged: () => void; onError: (message: string) => void; refreshKey: number }) {
   const [open, setOpen] = useState(false)
   const [children, setChildren] = useState<Issue[] | null>(null)
 
@@ -444,12 +411,19 @@ function ChildRow({ issue, workflow, refreshKey }: { issue: Issue; workflow: Ret
         )}
         <span className="project-key">{issue.key}</span> <TypeBadge type={issue.type} />
         <Link to={`/issues/${issue.id}`}>{issue.title}</Link>
-        <span className={`badge status-${issue.status.toLowerCase()}`}>{workflow.names[issue.status]}</span>
-        <Assignee user={issue.assignee} />
+        {canEdit ? (
+          <InlineControls issue={issue} members={members} workflow={workflow} onDone={onChanged} onError={onError} />
+        ) : (
+          <>
+            <PriorityBadge priority={issue.priority} />
+            <span className={`badge status-${issue.status.toLowerCase()}`}>{workflow.names[issue.status]}</span>
+            <Assignee user={issue.assignee} />
+          </>
+        )}
       </div>
       {open && (
         <ul className="plain-list subtask-list">
-          {children === null ? <li className="muted small">Đang tải…</li> : children.map((c) => <ChildRow key={c.id} issue={c} workflow={workflow} refreshKey={refreshKey} />)}
+          {children === null ? <li className="muted small">Đang tải…</li> : children.map((c) => <ChildRow key={c.id} issue={c} workflow={workflow} members={members} canEdit={canEdit} onChanged={onChanged} onError={onError} refreshKey={refreshKey} />)}
         </ul>
       )}
     </li>
