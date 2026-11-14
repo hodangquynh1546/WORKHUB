@@ -48,14 +48,9 @@ public class IntegrationOutbox {
 		this.clock = clock;
 	}
 
-	/** Cheap no-op unless webhooks are configured and the project has (or had) externally linked issues. */
+	/** Cheap no-op unless webhooks are configured. Every project change is announced: the receiver ignores projects it does not map and creates a SmartSpec project for new ones. */
 	public void projectChanged(UUID projectId) {
 		if (!properties.webhookEnabled()) {
-			return;
-		}
-		Boolean linked = jdbc.queryForObject(
-				"select count(*) > 0 from issues where project_id = ? and external_ref is not null", Boolean.class, projectId);
-		if (!Boolean.TRUE.equals(linked)) {
 			return;
 		}
 		Integer pending = jdbc.queryForObject(

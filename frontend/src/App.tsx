@@ -28,6 +28,7 @@ import { RealtimeProvider } from './realtime/RealtimeProvider'
 import { ReportsPage } from './pages/project/ReportsPage'
 import { SettingsPage } from './pages/project/SettingsPage'
 import { TeamPage } from './pages/TeamPage'
+import { SsoPage } from './pages/SsoPage'
 import { VerifyEmailPage } from './pages/VerifyEmailPage'
 import { WorkspacePage } from './pages/WorkspacePage'
 import { WorkspacesPage } from './pages/WorkspacesPage'
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/sso" element={<SsoPage />} />
           <Route path="/invitations/:token" element={<InvitationPage />} />
           <Route element={<RequireAuth />}>
             <Route element={<Layout />}>

@@ -36,8 +36,15 @@ public class IntegrationController {
 
 	private final IntegrationGate gate;
 
-	public IntegrationController(AuthService auth, IntegrationTokenService tokens, IntegrationGate gate) {
+	private final SsoTickets sso;
+
+	private final com.workhub.user.UserRepository users;
+
+	public IntegrationController(AuthService auth, IntegrationTokenService tokens, IntegrationGate gate, SsoTickets sso,
+			com.workhub.user.UserRepository users) {
 		this.gate = gate;
+		this.sso = sso;
+		this.users = users;
 		this.auth = auth;
 		this.tokens = tokens;
 	}
@@ -89,6 +96,23 @@ public class IntegrationController {
 			throw com.workhub.common.ApiException.forbidden("FORBIDDEN", "Integration key required");
 		}
 		auth.setPasswordFromPeer(request.email(), request.password());
+	}
+
+	public record SsoRequest(@NotBlank String email) {
+	}
+
+	public record SsoTicket(String ticket) {
+	}
+
+	/** The other system asks for a one-time ticket that signs this person in here (see {@link SsoTickets}). */
+	@PostMapping("/api/integrations/sso-ticket")
+	public SsoTicket ssoTicket(@Valid @RequestBody SsoRequest request) {
+		if (!gate.trusted()) {
+			throw com.workhub.common.ApiException.forbidden("FORBIDDEN", "Integration key required");
+		}
+		com.workhub.user.User user = users.findByEmail(com.workhub.user.User.normalizeEmail(request.email()))
+			.orElseThrow(() -> com.workhub.common.ApiException.notFound("USER_NOT_FOUND", "No such account"));
+		return new SsoTicket(sso.issue(user.getId()));
 	}
 
 	@PostMapping("/api/integrations/token")

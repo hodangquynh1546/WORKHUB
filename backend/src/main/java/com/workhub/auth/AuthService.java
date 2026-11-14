@@ -37,13 +37,16 @@ public class AuthService {
 
 	private final com.workhub.integration.IdentityPeer peer;
 
+	private final com.workhub.integration.SsoTickets sso;
+
 	/** Compared against when the email is unknown, so login takes the same time either way. */
 	private final String dummyPasswordHash;
 
 	public AuthService(UserRepository users, UserService userService, UserTokenService tokens,
 			PasswordEncoder passwordEncoder, JwtService jwtService, EmailSender emailSender, AuthProperties properties,
-			com.workhub.integration.IdentityPeer peer) {
+			com.workhub.integration.IdentityPeer peer, com.workhub.integration.SsoTickets sso) {
 		this.peer = peer;
+		this.sso = sso;
 		this.users = users;
 		this.userService = userService;
 		this.tokens = tokens;
@@ -164,6 +167,16 @@ public class AuthService {
 		user.changePasswordHash(passwordEncoder.encode(request.newPassword()));
 		tokens.revokeAll(userId, TokenType.REFRESH);
 		peer.setPassword(user.getEmail(), request.newPassword());
+		return startSession(user);
+	}
+
+	/** Signs in with a one-time ticket minted by the integration (see SsoTickets); the person is the one it was issued for. */
+	@Transactional
+	public Session ssoLogin(String ticket) {
+		UUID userId = sso.redeem(ticket)
+			.orElseThrow(() -> ApiException.unauthorized("INVALID_TICKET", "Phiên đăng nhập một lần không hợp lệ hoặc đã hết hạn"));
+		User user = users.findById(userId)
+			.orElseThrow(() -> ApiException.unauthorized("INVALID_TICKET", "Phiên đăng nhập một lần không hợp lệ hoặc đã hết hạn"));
 		return startSession(user);
 	}
 

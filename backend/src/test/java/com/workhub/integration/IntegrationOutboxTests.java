@@ -82,17 +82,17 @@ class IntegrationOutboxTests {
 	}
 
 	@Test
-	void changesToLinkedProjectsAreQueuedCoalescedAndDeliveredSigned() throws Exception {
+	void changesToProjectsAreQueuedCoalescedAndDeliveredSigned() throws Exception {
 		Session owner = TestApi.register(mockMvc);
 		UUID ws = TestApi.createWorkspace(mockMvc, owner, "Org");
 		UUID team = TestApi.createTeam(mockMvc, owner, ws, "Team");
 		UUID project = TestApi.createProject(mockMvc, owner, team, TestApi.uniqueKey());
 		UUID plain = TestApi.createProject(mockMvc, owner, team, TestApi.uniqueKey());
 
-		// Nothing is queued for a project without externally linked issues.
+		// Every project change is announced (the receiver ignores projects it does not map), one coalesced row per project.
 		mockMvc.perform(post("/api/projects/" + plain + "/issues").header("Authorization", owner.bearer())
 			.contentType(MediaType.APPLICATION_JSON).content("{\"type\":\"TASK\",\"title\":\"local\"}")).andExpect(status().isCreated());
-		assertThat(pending(plain)).isZero();
+		assertThat(pending(plain)).as("creation and edits coalesce into one pending row").isEqualTo(1);
 
 		String issue = read(mockMvc.perform(post("/api/projects/" + project + "/issues").header("Authorization", owner.bearer())
 			.contentType(MediaType.APPLICATION_JSON).content("{\"type\":\"TASK\",\"title\":\"linked\",\"externalRef\":\"smartspec:usecase/x\"}"))

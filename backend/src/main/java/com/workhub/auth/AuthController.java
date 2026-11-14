@@ -35,6 +35,14 @@ public class AuthController {
 		return respond(HttpStatus.OK, authService.login(request));
 	}
 
+	public record Sso(@jakarta.validation.constraints.NotBlank String ticket) {
+	}
+
+	@PostMapping("/sso")
+	public ResponseEntity<AuthResponse> sso(@Valid @RequestBody Sso request) {
+		return respond(HttpStatus.OK, authService.ssoLogin(request.ticket()));
+	}
+
 	@PostMapping("/refresh")
 	public ResponseEntity<AuthResponse> refresh(
 			@CookieValue(name = RefreshCookies.NAME, required = false) String refreshToken) {

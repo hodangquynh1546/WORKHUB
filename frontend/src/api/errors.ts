@@ -7,6 +7,7 @@ const MESSAGES: Record<string, string> = {
   NAME_MISMATCH: 'Tên bạn nhập không khớp.',
   RATE_LIMITED: 'Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.',
   INVALID_CREDENTIALS: 'Email hoặc mật khẩu không đúng.',
+  INVALID_TICKET: 'Phiên đăng nhập một lần đã hết hạn. Hãy bấm "Mở WorkHub" lại từ SmartSpec.',
   INVALID_TOKEN: 'Liên kết không hợp lệ hoặc đã hết hạn.',
   INVALID_REFRESH_TOKEN: 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.',
   INVALID_CURRENT_PASSWORD: 'Mật khẩu hiện tại không đúng.',

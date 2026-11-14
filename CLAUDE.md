@@ -150,3 +150,4 @@ Integration tests use `@SpringBootTest` + `@AutoConfigureMockMvc`, so the real s
 - Single-use links (verify email) must guard against StrictMode's double effect with a `useRef` flag (see `VerifyEmailPage`).
 
 The machine's JDK is 23; the build targets Java 21 (`java.version` in `pom.xml`).
+- **SSO từ SmartSpec** (`integration/SsoTickets`): `POST /api/integrations/sso-ticket {email}` (chỉ khi có `X-Integration-Key`) trả vé `userId.hạn.hmac` sống 90 giây, dùng một lần; `POST /api/auth/sso {ticket}` đổi vé thành phiên như đăng nhập; frontend `pages/SsoPage.tsx` (`/sso?ticket=&next=`, chỉ nhận `next` cùng origin). `IntegrationOutbox.projectChanged` giờ báo **mọi** dự án (kể cả vừa tạo, gọi từ `ProjectService.create`) để ForgeBridge tạo dự án đối ứng bên SmartSpec.

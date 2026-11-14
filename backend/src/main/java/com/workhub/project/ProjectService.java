@@ -52,10 +52,13 @@ public class ProjectService {
 
 	private final java.time.Clock clock;
 
+	private final com.workhub.integration.IntegrationOutbox outbox;
+
 	public ProjectService(AccessService access, ProjectRepository projects, ProjectMemberRepository members,
 			TeamRepository teams, WorkspaceMemberRepository workspaceMembers, IssueRepository issues,
 			SprintRepository sprints, com.workhub.notification.NotificationService notifications,
-			ProjectAvatarRepository avatars, java.time.Clock clock) {
+			ProjectAvatarRepository avatars, java.time.Clock clock, com.workhub.integration.IntegrationOutbox outbox) {
+		this.outbox = outbox;
 		this.notifications = notifications;
 		this.access = access;
 		this.projects = projects;
@@ -95,6 +98,7 @@ public class ProjectService {
 				members.save(new ProjectMember(project.getId(), member.userId(), member.role()));
 			}
 		}
+		outbox.projectChanged(project.getId()); // integrations learn about the new project (SmartSpec creates its counterpart)
 		Set<ProjectRole> mine = Set.of(ProjectRole.PROJECT_MANAGER);
 		ProjectAccess caller = new ProjectAccess(project, userId, team.workspaceRole(), team.teamRole(), mine);
 		return ProjectResponse.of(project, userId, team.team().getName(), added.size(), mine,
